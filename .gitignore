@@ -1,0 +1,12 @@
+data/
+node_modules/
+dist/
+release/
+.env
+.env.local
+.DS_Store
+*.log
+test*.mjs
+test*.json
+*test*.ts
+*test*.js

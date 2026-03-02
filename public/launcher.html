@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 女友 - 启动器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-card: rgba(255, 255, 255, 0.03);
+            --bg-card-hover: rgba(255, 255, 255, 0.06);
+            --border-subtle: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.12);
+            --text-primary: #e8e8ff;
+            --text-secondary: rgba(255, 255, 255, 0.55);
+            --text-muted: rgba(255, 255, 255, 0.3);
+            --accent-purple: #8b5cf6;
+            --accent-indigo: #6366f1;
+            --accent-blue: #3b82f6;
+            --accent-green: #22c55e;
+            --accent-pink: #ec4899;
+            --glow-purple: rgba(139, 92, 246, 0.25);
+            --glow-green: rgba(34, 197, 94, 0.2);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-primary);
+            min-height: 100vh;
+            color: var(--text-primary);
+            overflow: hidden;
+            -webkit-app-region: drag;
+            user-select: none;
+        }
+
+        /* === Animated Background === */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .bg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.4;
+        }
+
+        .bg-orb.orb-1 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.3), transparent 70%);
+            top: -200px;
+            right: -100px;
+            animation: orbFloat1 12s ease-in-out infinite;
+        }
+
+        .bg-orb.orb-2 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.25), transparent 70%);
+            bottom: -150px;
+            left: -100px;
+            animation: orbFloat2 15s ease-in-out infinite;
+        }
+
+        .bg-orb.orb-3 {
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.15), transparent 70%);
+            top: 50%;
+            left: 40%;
+            animation: orbFloat3 10s ease-in-out infinite;
+        }
+
+        @keyframes orbFloat1 {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(-40px, 30px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(20px, -20px) scale(0.95);
+            }
+        }
+
+        @keyframes orbFloat2 {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(50px, -40px) scale(1.15);
+            }
+        }
+
+        @keyframes orbFloat3 {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.3;
+            }
+
+            50% {
+                transform: translate(-30px, 20px) scale(1.2);
+                opacity: 0.5;
+            }
+        }
+
+        /* Grid overlay */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* === Layout === */
+        .launcher {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 20px 24px;
+        }
+
+        /* === Title Bar === */
+        .title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            animation: fadeSlideDown 0.6s ease-out;
+        }
+
+        @keyframes fadeSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-12px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .title-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .app-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .app-icon::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+            border-radius: inherit;
+        }
+
+        .app-title {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #c4b5fd, #a78bfa, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .app-version {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 2px;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+        }
+
+        .win-btn {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .win-btn:hover {
+            transform: scale(1.15);
+        }
+
+        .win-btn.close {
+            background: #ff5f57;
+            box-shadow: 0 0 6px rgba(255, 95, 87, 0.4);
+        }
+
+        .win-btn.minimize {
+            background: #ffbd2e;
+            box-shadow: 0 0 6px rgba(255, 189, 46, 0.4);
+        }
+
+        /* === Main Content === */
+        .content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+            overflow: hidden;
+            animation: fadeSlideUp 0.7s ease-out 0.15s both;
+        }
+
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* === Settings Panel === */
+        .settings-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 6px;
+            -webkit-app-region: no-drag;
+        }
+
+        .settings-panel::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .settings-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .settings-panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            backdrop-filter: blur(12px);
+            transition: all 0.35s ease;
+        }
+
+        .section:hover {
+            border-color: var(--border-hover);
+            background: var(--bg-card-hover);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .section-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .section-icon.api {
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .section-icon.model {
+            background: rgba(59, 130, 246, 0.15);
+        }
+
+        .section-icon.service {
+            background: rgba(249, 115, 22, 0.15);
+        }
+
+        .section-icon.platform {
+            background: rgba(34, 197, 94, 0.15);
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--text-secondary);
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        .field:last-child {
+            margin-bottom: 0;
+        }
+
+        .field label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .field input,
+        .field select {
+            width: 100%;
+            padding: 9px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+            -webkit-app-region: no-drag;
+        }
+
+        .field input:focus,
+        .field select:focus {
+            border-color: rgba(139, 92, 246, 0.4);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08), 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .field input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .field select option {
+            background: #14142b;
+            color: var(--text-primary);
+        }
+
+        /* API Key field with toggle */
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper input {
+            padding-right: 40px;
+        }
+
+        .toggle-visibility {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+            transition: color 0.2s;
+            -webkit-app-region: no-drag;
+        }
+
+        .toggle-visibility:hover {
+            color: var(--text-secondary);
+        }
+
+        /* Status indicator */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .status-badge.ok {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-badge.warn {
+            background: rgba(251, 191, 36, 0.12);
+            color: #fbbf24;
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .status-dot.ok {
+            background: #4ade80;
+            box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
+        }
+
+        .status-dot.warn {
+            background: #fbbf24;
+            box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+        }
+
+        /* Inline row for port + character */
+        .fields-row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 10px;
+        }
+
+        /* Toggle switches */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 0;
+        }
+
+        .toggle-row+.toggle-row {
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .toggle-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.65);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-label .icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            -webkit-app-region: no-drag;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+            position: absolute;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 22px;
+            transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .toggle-switch input:checked+.toggle-slider {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-indigo));
+            box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+        }
+
+        .toggle-switch input:checked+.toggle-slider::before {
+            transform: translateX(18px);
+        }
+
+        /* === Launch Panel === */
+        .launch-panel {
+            width: 250px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 14px;
+            -webkit-app-region: no-drag;
+        }
+
+        .launch-card {
+            position: relative;
+            border-radius: var(--radius-xl);
+            padding: 2px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .launch-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1.5px;
+            background: linear-gradient(135deg, transparent, transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            transition: background 0.5s ease;
+        }
+
+        .launch-card.gui:hover::before {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink), var(--accent-indigo));
+        }
+
+        .launch-card.web:hover::before {
+            background: linear-gradient(135deg, var(--accent-green), var(--accent-blue), var(--accent-green));
+        }
+
+        .launch-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .launch-card:active {
+            transform: translateY(-1px);
+        }
+
+        .launch-inner {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+            border: 1px solid var(--border-subtle);
+            border-radius: calc(var(--radius-xl) - 2px);
+            padding: 28px 20px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+
+        .launch-card:hover .launch-inner {
+            border-color: transparent;
+        }
+
+        /* Shimmer effect on hover */
+        .launch-inner::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg,
+                    transparent 40%,
+                    rgba(255, 255, 255, 0.03) 45%,
+                    rgba(255, 255, 255, 0.05) 50%,
+                    rgba(255, 255, 255, 0.03) 55%,
+                    transparent 60%);
+            transform: translateX(-100%) rotate(0deg);
+            transition: none;
+        }
+
+        .launch-card:hover .launch-inner::after {
+            animation: shimmer 1.5s ease-in-out;
+        }
+
+        @keyframes shimmer {
+            to {
+                transform: translateX(100%) rotate(0deg);
+            }
+        }
+
+        /* Glow effect behind card on hover */
+        .launch-card.gui:hover {
+            filter: drop-shadow(0 0 30px rgba(139, 92, 246, 0.15));
+        }
+
+        .launch-card.web:hover {
+            filter: drop-shadow(0 0 30px rgba(34, 197, 94, 0.12));
+        }
+
+        .launch-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+            display: block;
+            position: relative;
+            z-index: 1;
+            transition: transform 0.4s ease;
+        }
+
+        .launch-card:hover .launch-icon {
+            transform: scale(1.12);
+        }
+
+        .launch-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 5px;
+            letter-spacing: -0.3px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .launch-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            position: relative;
+            z-index: 1;
+        }
+
+        .launch-card.gui .launch-title {
+            background: linear-gradient(135deg, #c4b5fd, #a78bfa, #818cf8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .launch-card.web .launch-title {
+            background: linear-gradient(135deg, #86efac, #4ade80, #22c55e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Keyboard shortcut hints */
+        .shortcut-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .kbd {
+            padding: 2px 7px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            font-family: inherit;
+            line-height: 1.4;
+        }
+
+        /* === Loading Overlay === */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 10, 26, 0.92);
+            backdrop-filter: blur(20px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner-ring {
+            width: 56px;
+            height: 56px;
+            position: relative;
+        }
+
+        .spinner-ring::before,
+        .spinner-ring::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            border: 3px solid transparent;
+        }
+
+        .spinner-ring::before {
+            border-top-color: var(--accent-purple);
+            animation: spin 0.9s linear infinite;
+        }
+
+        .spinner-ring::after {
+            border-bottom-color: var(--accent-pink);
+            animation: spin 0.9s linear infinite reverse;
+            inset: 4px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
+        }
+
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+
+            100% {
+                content: '';
+            }
+        }
+
+        /* === Footer === */
+        .footer {
+            text-align: center;
+            padding: 10px 0 2px;
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            animation: fadeSlideUp 0.7s ease-out 0.3s both;
+        }
+
+        /* === Scrollbar for select === */
+        select::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        select::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        select::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+
+        /* === Shake animation === */
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            20% {
+                transform: translateX(-6px);
+            }
+
+            40% {
+                transform: translateX(6px);
+            }
+
+            60% {
+                transform: translateX(-4px);
+            }
+
+            80% {
+                transform: translateX(4px);
+            }
+        }
+
+        /* === Staggered entrance for sections === */
+        .section:nth-child(1) {
+            animation: fadeSlideUp 0.5s ease-out 0.1s both;
+        }
+
+        .section:nth-child(2) {
+            animation: fadeSlideUp 0.5s ease-out 0.2s both;
+        }
+
+        .section:nth-child(3) {
+            animation: fadeSlideUp 0.5s ease-out 0.3s both;
+        }
+
+        .section:nth-child(4) {
+            animation: fadeSlideUp 0.5s ease-out 0.4s both;
+        }
+
+        .launch-card:nth-child(1) {
+            animation: fadeSlideUp 0.6s ease-out 0.25s both;
+        }
+
+        .launch-card:nth-child(2) {
+            animation: fadeSlideUp 0.6s ease-out 0.35s both;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background -->
+    <div class="bg-mesh">
+        <div class="bg-orb orb-1"></div>
+        <div class="bg-orb orb-2"></div>
+        <div class="bg-orb orb-3"></div>
+    </div>
+    <div class="bg-grid"></div>
+
+    <div class="launcher">
+        <!-- Title Bar -->
+        <div class="title-bar">
+            <div class="title-bar-left">
+                <div class="app-icon">💕</div>
+                <div>
+                    <div class="app-title">AI 女友</div>
+                    <div class="app-version">v1.0.0 · 多平台智能陪伴机器人</div>
+                </div>
+            </div>
+            <div class="window-controls">
+                <button class="win-btn minimize" onclick="window.electronAPI?.minimize()"></button>
+                <button class="win-btn close" onclick="window.electronAPI?.close()"></button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <div class="settings-panel">
+                <!-- API Configuration -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-icon api">🔑</div>
+                        <span class="section-title">API 配置</span>
+                        <span id="apiStatusBadge" class="status-badge warn" style="margin-left: auto;">
+                            <span id="apiStatusDot" class="status-dot warn"></span>
+                            <span id="apiStatusLabel">未配置</span>
+                        </span>
+                    </div>
+                    <div class="field">
+                        <label>API Key</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="apiKeyInput" placeholder="输入你的 API Key..." />
+                            <button class="toggle-visibility" onclick="toggleApiKeyVisibility()"
+                                title="显示/隐藏">👁</button>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label>API 提供商</label>
+                        <select id="providerSelect" onchange="onProviderChange()">
+                            <option value="https://integrate.api.nvidia.com/v1" selected>NVIDIA NIM</option>
+                            <option value="https://api.siliconflow.cn/v1">硅基流动 (SiliconFlow)</option>
+                            <option value="https://api.openai.com/v1">OpenAI</option>
+                            <option value="https://api.deepseek.com/v1">DeepSeek</option>
+                            <option value="custom">自定义 Base URL...</option>
+                        </select>
+                    </div>
+                    <div class="field" id="customUrlField" style="display:none;">
+                        <label>自定义 Base URL</label>
+                        <input type="text" id="customUrlInput" placeholder="https://your-api.com/v1" />
+                    </div>
+                </div>
+
+                <!-- Model Selection -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-icon model">🤖</div>
+                        <span class="section-title">模型选择</span>
+                    </div>
+                    <div class="field">
+                        <label>AI 模型</label>
+                        <select id="modelSelect">
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>手动输入模型ID</label>
+                        <input type="text" id="customModelInput" placeholder="直接输入模型ID，如 deepseek-ai/deepseek-v3.2" />
+                    </div>
+                </div>
+
+                <!-- Service Settings -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-icon service">⚙️</div>
+                        <span class="section-title">服务设置</span>
+                    </div>
+                    <div class="fields-row">
+                        <div class="field">
+                            <label>端口</label>
+                            <input type="number" id="portInput" value="3000" min="1024" max="65535" />
+                        </div>
+                        <div class="field">
+                            <label>默认角色</label>
+                            <select id="characterSelect">
+                                <option value="girlfriend">💕 小爱 · 温柔体贴</option>
+                                <option value="klee">🔥 可莉 · 火花骑士</option>
+                                <option value="xiaoya">💔 小雅 · 情感教材</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Platform Toggles -->
+                <div class="section">
+                    <div class="section-header">
+                        <div class="section-icon platform">📡</div>
+                        <span class="section-title">平台启用</span>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">
+                            <span class="icon">🌐</span> Web 服务
+                        </span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableWeb" checked />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">
+                            <span class="icon">💬</span> 微信机器人
+                        </span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableWechat" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <span class="toggle-label">
+                            <span class="icon">✈️</span> Telegram
+                        </span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enableTelegram" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="field" id="telegramTokenField" style="display:none; margin-top: 8px;">
+                        <label>Telegram Bot Token</label>
+                        <input type="password" id="telegramTokenInput" placeholder="从 @BotFather 获取" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Launch Buttons -->
+            <div class="launch-panel">
+                <div class="launch-card gui" onclick="launchApp('gui')">
+                    <div class="launch-inner">
+                        <span class="launch-icon">🖥️</span>
+                        <div class="launch-title">GUI 模式启动</div>
+                        <div class="launch-desc">在桌面窗口中打开聊天界面</div>
+                        <div class="shortcut-hint">
+                            <span class="kbd">⌘</span><span class="kbd">G</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="launch-card web" onclick="launchApp('web')">
+                    <div class="launch-inner">
+                        <span class="launch-icon">🌐</span>
+                        <div class="launch-title">Web 模式启动</div>
+                        <div class="launch-desc">在默认浏览器中打开聊天界面</div>
+                        <div class="shortcut-hint">
+                            <span class="kbd">⌘</span><span class="kbd">W</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Made with 💜 · 基于大语言模型的智能陪伴机器人
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner-ring"></div>
+        <div class="loading-text"><span id="loadingText">正在启动服务</span><span class="loading-dots"></span></div>
+    </div>
+
+    <script>
+        // ===== State =====
+        let currentConfig = {};
+        let apiKeyVisible = false;
+
+        // ===== Init =====
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadConfig();
+            setupListeners();
+            setupKeyboardShortcuts();
+        });
+
+        async function loadConfig() {
+            try {
+                if (window.electronAPI && window.electronAPI.getEnvConfig) {
+                    currentConfig = await window.electronAPI.getEnvConfig();
+                    applyConfigToUI(currentConfig);
+                }
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+        }
+
+        function applyConfigToUI(cfg) {
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            if (cfg.apiKey) {
+                apiKeyInput.value = cfg.apiKey;
+                updateApiStatus(true);
+            } else {
+                updateApiStatus(false);
+            }
+
+            const providerSelect = document.getElementById('providerSelect');
+            const knownProviders = [
+                'https://api.siliconflow.cn/v1',
+                'https://api.openai.com/v1',
+                'https://integrate.api.nvidia.com/v1',
+                'https://api.deepseek.com/v1'
+            ];
+            if (cfg.baseUrl && knownProviders.includes(cfg.baseUrl)) {
+                providerSelect.value = cfg.baseUrl;
+            } else if (cfg.baseUrl) {
+                providerSelect.value = 'custom';
+                document.getElementById('customUrlField').style.display = 'block';
+                document.getElementById('customUrlInput').value = cfg.baseUrl;
+            }
+
+            // 根据当前提供商刷新模型列表
+            updateModelList();
+
+            if (cfg.model) {
+                document.getElementById('modelSelect').value = cfg.model;
+                document.getElementById('customModelInput').value = cfg.model;
+            }
+            if (cfg.port) document.getElementById('portInput').value = cfg.port;
+            if (cfg.characterType) document.getElementById('characterSelect').value = cfg.characterType;
+
+            document.getElementById('enableWeb').checked = cfg.enableWeb !== false;
+            document.getElementById('enableWechat').checked = cfg.enableWechat === true;
+            document.getElementById('enableTelegram').checked = cfg.enableTelegram === true;
+
+            if (cfg.enableTelegram) {
+                document.getElementById('telegramTokenField').style.display = 'block';
+            }
+            if (cfg.telegramToken) {
+                document.getElementById('telegramTokenInput').value = cfg.telegramToken;
+            }
+        }
+
+        function updateApiStatus(isValid) {
+            const dot = document.getElementById('apiStatusDot');
+            const badge = document.getElementById('apiStatusBadge');
+            const label = document.getElementById('apiStatusLabel');
+            if (isValid) {
+                dot.className = 'status-dot ok';
+                badge.className = 'status-badge ok';
+                label.textContent = '已配置';
+            } else {
+                dot.className = 'status-dot warn';
+                badge.className = 'status-badge warn';
+                label.textContent = '未配置';
+            }
+        }
+
+        function setupListeners() {
+            document.getElementById('apiKeyInput').addEventListener('input', (e) => {
+                updateApiStatus(e.target.value.length > 10);
+            });
+
+            document.getElementById('enableTelegram').addEventListener('change', (e) => {
+                document.getElementById('telegramTokenField').style.display =
+                    e.target.checked ? 'block' : 'none';
+            });
+        }
+
+        function setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
+                    e.preventDefault();
+                    launchApp('gui');
+                }
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'w') {
+                    e.preventDefault();
+                    launchApp('web');
+                }
+            });
+        }
+
+        function toggleApiKeyVisibility() {
+            const input = document.getElementById('apiKeyInput');
+            const btn = document.querySelector('.toggle-visibility');
+            apiKeyVisible = !apiKeyVisible;
+            input.type = apiKeyVisible ? 'text' : 'password';
+            btn.textContent = apiKeyVisible ? '🔒' : '👁';
+        }
+
+        function onProviderChange() {
+            const val = document.getElementById('providerSelect').value;
+            document.getElementById('customUrlField').style.display =
+                val === 'custom' ? 'block' : 'none';
+            updateModelList();
+        }
+
+        const PROVIDER_MODELS = {
+            'https://api.siliconflow.cn/v1': [
+                {
+                    group: '🏆 S级推荐 · 角色扮演最佳', models: [
+                        { id: 'Pro/deepseek-ai/DeepSeek-R1', name: 'DeepSeek-R1 (Pro) · 情感细腻' },
+                        { id: 'Pro/deepseek-ai/DeepSeek-V3.2', name: 'DeepSeek-V3.2 (Pro) · 简洁自然' },
+                        { id: 'Pro/deepseek-ai/DeepSeek-V3', name: 'DeepSeek-V3 (Pro) · 动作描写' },
+                        { id: 'Pro/MiniMaxAI/MiniMax-M2.5', name: 'MiniMax-M2.5 (Pro) · 互动性强' },
+                        { id: 'Pro/MiniMaxAI/MiniMax-M2.1', name: 'MiniMax-M2.1 (Pro) · 分段自然' },
+                        { id: 'Pro/moonshotai/Kimi-K2-Instruct-0905', name: 'Kimi-K2 (Pro) · 口语化' },
+                        { id: 'Pro/moonshotai/Kimi-K2.5', name: 'Kimi-K2.5 (Pro) · 撒娇语气' },
+                        { id: 'Pro/zai-org/GLM-5', name: 'GLM-5 (Pro) · 关心体贴' },
+                        { id: 'Qwen/Qwen3-Next-80B-A3B-Instruct', name: 'Qwen3-Next-80B · 极速⚡' },
+                        { id: 'Qwen/Qwen3-Coder-30B-A3B-Instruct', name: 'Qwen3-Coder-30B · 极速⚡' },
+                        { id: 'Kwaipilot/KAT-Dev', name: 'KAT-Dev (快手) · 极速⚡' },
+                        { id: 'ByteDance-Seed/Seed-OSS-36B-Instruct', name: 'Seed-OSS-36B (字节)' },
+                    ]
+                },
+                {
+                    group: '⭐ A级推荐', models: [
+                        { id: 'Qwen/Qwen3-235B-A22B-Instruct-2507', name: 'Qwen3-235B · 大模型' },
+                        { id: 'Qwen/Qwen3-14B', name: 'Qwen3-14B · 极速⚡' },
+                        { id: 'Qwen/Qwen3-8B', name: 'Qwen3-8B · 轻量快速' },
+                        { id: 'Qwen/Qwen3-32B', name: 'Qwen3-32B · 表达细腻' },
+                        { id: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen2.5-72B · 大模型' },
+                        { id: 'Qwen/Qwen2.5-72B-Instruct-128K', name: 'Qwen2.5-72B-128K · 长上下文' },
+                        { id: 'Qwen/Qwen2.5-32B-Instruct', name: 'Qwen2.5-32B · 极速⚡' },
+                        { id: 'Pro/deepseek-ai/DeepSeek-V3.1-Terminus', name: 'DeepSeek-V3.1-T (Pro)' },
+                        { id: 'Pro/zai-org/GLM-4.7', name: 'GLM-4.7 (Pro)' },
+                        { id: 'Qwen/QwQ-32B', name: 'QwQ-32B · 思考型' },
+                        { id: 'Pro/moonshotai/Kimi-K2-Thinking', name: 'Kimi-K2-Thinking (Pro)' },
+                    ]
+                },
+                {
+                    group: '💡 B级可用', models: [
+                        { id: 'Qwen/Qwen2.5-7B-Instruct', name: 'Qwen2.5-7B · 轻量' },
+                        { id: 'Qwen/Qwen2.5-14B-Instruct', name: 'Qwen2.5-14B · 中等' },
+                        { id: 'Pro/Qwen/Qwen2-7B-Instruct', name: 'Qwen2-7B (Pro) · 极速⚡' },
+                        { id: 'Pro/THUDM/glm-4-9b-chat', name: 'GLM-4-9B (Pro) · 轻量' },
+                        { id: 'Qwen/Qwen3-Coder-480B-A35B-Instruct', name: 'Qwen3-Coder-480B · 超大模型' },
+                    ]
+                },
+            ],
+            'https://integrate.api.nvidia.com/v1': [
+                {
+                    group: '🏆 S级推荐 · 角色扮演最佳', models: [
+                        { id: 'deepseek-ai/deepseek-v3.2', name: 'DeepSeek V3.2 · 简洁自然' },
+                        { id: 'deepseek-ai/deepseek-v3.1', name: 'DeepSeek V3.1 · 动作描写' },
+                        { id: 'qwen/qwen3.5-397b-a17b', name: 'Qwen3.5-397B · 最快S级⚡' },
+                        { id: 'mistralai/mistral-large-3-675b-instruct-2512', name: 'Mistral Large 3 · 撒娇完美' },
+                        { id: 'moonshotai/kimi-k2-instruct', name: 'Kimi K2 · 口语化' },
+                        { id: 'minimaxai/minimax-m2.1', name: 'MiniMax M2.1 · 分段自然' },
+                        { id: 'minimaxai/minimax-m2', name: 'MiniMax M2 · 温柔关心' },
+                        { id: 'stepfun-ai/step-3.5-flash', name: 'Step 3.5 Flash · 极速⚡' },
+                    ]
+                },
+                {
+                    group: '⭐ A级推荐', models: [
+                        { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B · 极速0.7s⚡' },
+                        { id: 'mistralai/mistral-nemotron', name: 'Mistral Nemotron · 极速⚡' },
+                        { id: 'meta/llama-3.1-70b-instruct', name: 'Llama 3.1 70B · 极速⚡' },
+                        { id: 'mistralai/mistral-medium-3-instruct', name: 'Mistral Medium 3 · 极速⚡' },
+                        { id: 'google/gemma-3-27b-it', name: 'Gemma 3 27B · 颜文字可爱' },
+                        { id: 'mistralai/mistral-small-24b-instruct', name: 'Mistral Small 24B · 温柔' },
+                        { id: 'openai/gpt-oss-120b', name: 'GPT-OSS 120B · 自然流畅' },
+                        { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B · 极速0.5s⚡' },
+                        { id: 'abacusai/dracarys-llama-3.1-70b-instruct', name: 'Dracarys Llama 70B · 口语化' },
+                        { id: 'meta/llama-3.1-405b-instruct', name: 'Llama 3.1 405B · 最大模型' },
+                        { id: 'mistralai/mixtral-8x22b-instruct-v0.1', name: 'Mixtral 8x22B · 极速⚡' },
+                        { id: 'nvidia/llama-3.3-nemotron-super-49b-v1', name: 'Nemotron Super 49B · 建议丰富' },
+                        { id: 'qwen/qwen3-235b-a22b', name: 'Qwen3-235B · 内容丰富' },
+                    ]
+                },
+                {
+                    group: '💡 B级可用', models: [
+                        { id: 'meta/llama-3.1-8b-instruct', name: 'Llama 3.1 8B · 轻量' },
+                        { id: 'google/gemma-3-4b-it', name: 'Gemma 3 4B · 小巧' },
+                        { id: 'qwen/qwen2-7b-instruct', name: 'Qwen2-7B · 轻量' },
+                        { id: 'qwen/qwq-32b', name: 'QwQ-32B · 思考型' },
+                    ]
+                },
+                {
+                    group: '📷 视觉模型', models: [
+                        { id: 'meta/llama-3.2-90b-vision-instruct', name: 'Llama 3.2 Vision 90B 📷' },
+                        { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 Vision 11B 📷' },
+                        { id: 'qwen/qwen2.5-vl-72b-instruct', name: 'Qwen 2.5-VL 72B 📷' },
+                        { id: 'qwen/qwen2.5-vl-7b-instruct', name: 'Qwen 2.5-VL 7B 📷' },
+                        { id: 'nvidia/nemotron-nano-12b-v2-vl', name: 'Nemotron Nano VL 12B 📷' },
+                    ]
+                }
+            ],
+            'https://api.openai.com/v1': [
+                {
+                    group: 'OpenAI 模型', models: [
+                        { id: 'gpt-4o', name: 'GPT-4o' },
+                        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+                        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+                        { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
+                    ]
+                },
+            ],
+            'https://api.deepseek.com/v1': [
+                {
+                    group: 'DeepSeek 模型', models: [
+                        { id: 'deepseek-chat', name: 'DeepSeek Chat' },
+                        { id: 'deepseek-coder', name: 'DeepSeek Coder' },
+                    ]
+                },
+            ],
+        };
+
+        function updateModelList() {
+            const provider = document.getElementById('providerSelect').value;
+            const select = document.getElementById('modelSelect');
+            select.innerHTML = '';
+
+            const groups = PROVIDER_MODELS[provider];
+            if (groups) {
+                groups.forEach(g => {
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = g.group;
+                    g.models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name;
+                        optgroup.appendChild(opt);
+                    });
+                    select.appendChild(optgroup);
+                });
+            } else {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '请使用下方手动输入框';
+                select.appendChild(opt);
+            }
+        }
+
+        function gatherConfig() {
+            const provider = document.getElementById('providerSelect').value;
+            const baseUrl = provider === 'custom'
+                ? document.getElementById('customUrlInput').value
+                : provider;
+
+            return {
+                apiKey: document.getElementById('apiKeyInput').value,
+                baseUrl,
+                model: document.getElementById('customModelInput').value.trim() || document.getElementById('modelSelect').value,
+                port: parseInt(document.getElementById('portInput').value) || 3000,
+                characterType: document.getElementById('characterSelect').value,
+                enableWeb: document.getElementById('enableWeb').checked,
+                enableWechat: document.getElementById('enableWechat').checked,
+                enableTelegram: document.getElementById('enableTelegram').checked,
+                telegramToken: document.getElementById('telegramTokenInput').value,
+            };
+        }
+
+        async function launchApp(mode) {
+            const config = gatherConfig();
+
+            if (!config.apiKey || config.apiKey.length < 10) {
+                shakeElement(document.getElementById('apiKeyInput'));
+                document.getElementById('apiKeyInput').focus();
+                return;
+            }
+
+            const overlay = document.getElementById('loadingOverlay');
+            const loadingText = document.getElementById('loadingText');
+            overlay.classList.add('active');
+
+            try {
+                // API 验证
+                loadingText.textContent = '正在验证 API Key...';
+                try {
+                    const targetUrl = config.baseUrl.endsWith('/') ? `${config.baseUrl}models` : `${config.baseUrl}/models`;
+                    const res = await fetch(targetUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${config.apiKey}`
+                        }
+                    });
+                    if (!res.ok && res.status !== 404) {
+                        if (res.status === 401 || res.status === 403) {
+                            throw new Error(`API 拒绝请求:状态码 ${res.status}`);
+                        }
+                    }
+                } catch (apiErr) {
+                    overlay.classList.remove('active');
+                    alert(`API 验证失败: ${apiErr.message || '网络错误或 API Key 无效'}\n请检查 API 提供商和 Key 是否正确。`);
+                    shakeElement(document.getElementById('apiKeyInput'));
+                    document.getElementById('apiKeyInput').focus();
+                    return;
+                }
+
+                loadingText.textContent = '正在保存配置';
+                if (window.electronAPI && window.electronAPI.saveEnvConfig) {
+                    await window.electronAPI.saveEnvConfig(config);
+                }
+
+                loadingText.textContent = mode === 'gui'
+                    ? '正在启动 GUI 模式'
+                    : '正在启动 Web 模式';
+
+                if (window.electronAPI) {
+                    if (mode === 'gui') {
+                        await window.electronAPI.launchGUI();
+                    } else {
+                        await window.electronAPI.launchWeb();
+                    }
+                }
+            } catch (e) {
+                console.error('Launch failed:', e);
+                overlay.classList.remove('active');
+                alert('启动失败: ' + e.message);
+            }
+        }
+
+        function shakeElement(el) {
+            el.style.animation = 'none';
+            el.offsetHeight;
+            el.style.animation = 'shake 0.5s ease-in-out';
+            el.style.borderColor = '#f87171';
+            el.style.boxShadow = '0 0 0 3px rgba(248, 113, 113, 0.15)';
+            setTimeout(() => {
+                el.style.borderColor = '';
+                el.style.boxShadow = '';
+                el.style.animation = '';
+            }, 1500);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 女友</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        
+        .app { display: flex; height: 100vh; }
+        
+        .sidebar { width: 280px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); display: flex; flex-direction: column; border-right: 1px solid rgba(255,255,255,0.2); }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .sidebar-header h2 { color: white; font-size: 1.2em; margin-bottom: 8px; }
+        .sidebar-header p { color: rgba(255,255,255,0.7); font-size: 0.85em; }
+        
+        .sidebar-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.2); }
+        .sidebar-tab { flex: 1; padding: 12px; background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 13px; transition: all 0.3s; }
+        .sidebar-tab.active { color: white; background: rgba(255,255,255,0.1); }
+        .sidebar-tab:hover { background: rgba(255,255,255,0.1); }
+        
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 15px; }
+        
+        .character-list { display: flex; flex-direction: column; gap: 10px; }
+        .character-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 12px; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+        .character-item:hover { background: rgba(255,255,255,0.15); }
+        .character-item.active { border-color: white; background: rgba(255,255,255,0.2); }
+        .character-item .avatar { font-size: 1.8em; }
+        .character-item .info { flex: 1; }
+        .character-item .info h4 { color: white; font-size: 0.95em; margin-bottom: 3px; }
+        .character-item .info p { color: rgba(255,255,255,0.6); font-size: 0.75em; }
+        .character-item .delete-btn { background: rgba(255,0,0,0.3); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 12px; display: none; }
+        .character-item .edit-btn { background: rgba(100,150,255,0.3); border: none; color: white; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 10px; display: none; margin-right: 4px; }
+        .character-item:hover .delete-btn, .character-item:hover .edit-btn { display: block; }
+        
+        .add-character-btn { width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 2px dashed rgba(255,255,255,0.3); border-radius: 12px; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 13px; margin-top: 10px; transition: all 0.3s; }
+        .add-character-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.5); }
+        
+        .settings-section { margin-bottom: 20px; }
+        .settings-section h3 { color: rgba(255,255,255,0.9); font-size: 0.85em; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        
+        .setting-item { margin-bottom: 12px; }
+        .setting-item label { display: block; color: rgba(255,255,255,0.8); font-size: 0.8em; margin-bottom: 6px; }
+        .setting-item input[type="text"], .setting-item input[type="number"], .setting-item textarea { width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 13px; outline: none; }
+        .setting-item input:focus, .setting-item textarea:focus { border-color: white; background: rgba(255,255,255,0.15); }
+        .setting-item input::placeholder, .setting-item textarea::placeholder { color: rgba(255,255,255,0.4); }
+        .setting-item textarea { resize: vertical; min-height: 80px; }
+        
+        .setting-item input[type="range"] { width: 100%; }
+        .range-value { color: white; font-size: 0.85em; text-align: right; margin-top: 4px; }
+        
+        .emoji-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+        .emoji-option { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 8px; cursor: pointer; font-size: 1.2em; transition: all 0.2s; }
+        .emoji-option:hover { background: rgba(255,255,255,0.2); }
+        .emoji-option.active { border-color: white; background: rgba(255,255,255,0.2); }
+        
+        .api-status { padding: 10px 12px; border-radius: 8px; font-size: 0.85em; margin-bottom: 8px; }
+        .api-status.valid { background: rgba(0,200,100,0.2); color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
+        .api-status.invalid { background: rgba(255,100,100,0.2); color: #ff6464; border: 1px solid rgba(255,100,100,0.3); }
+        .api-status.pending { background: rgba(255,200,0,0.2); color: #ffc800; border: 1px solid rgba(255,200,0,0.3); }
+        
+        .save-api-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, #00c864 0%, #00a050 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; margin-top: 8px; transition: opacity 0.3s; }
+        .save-api-btn:hover { opacity: 0.9; }
+        
+        .model-display { padding: 10px 12px; background: rgba(255,255,255,0.15); border-radius: 8px; color: white; font-size: 0.85em; margin-bottom: 8px; }
+        .model-display .model-name { font-weight: bold; }
+        .model-display .model-desc { opacity: 0.7; font-size: 0.9em; margin-top: 4px; }
+        
+        .model-list { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+        .model-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(255,255,255,0.1); border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .model-item:hover { background: rgba(255,255,255,0.15); }
+        .model-item.active { border-color: white; background: rgba(255,255,255,0.2); }
+        .model-item .model-info { flex: 1; }
+        .model-item .model-info .name { color: white; font-size: 0.9em; font-weight: 500; }
+        .model-item .model-info .desc { color: rgba(255,255,255,0.6); font-size: 0.75em; margin-top: 2px; }
+        .model-item .model-tag { padding: 3px 8px; border-radius: 4px; font-size: 0.7em; }
+        .model-item .model-tag.free { background: rgba(0,200,100,0.3); color: #00c864; }
+        .model-item .model-tag.paid { background: rgba(255,180,0,0.3); color: #ffb400; }
+        
+        .about-card { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; margin-top: 8px; }
+        .about-card p { color: rgba(255,255,255,0.9); font-size: 0.85em; margin-bottom: 8px; line-height: 1.6; }
+        .about-list { color: rgba(255,255,255,0.85); font-size: 0.85em; margin-left: 16px; line-height: 1.8; }
+        .about-list li { margin-bottom: 4px; }
+        .about-tip { background: rgba(255,200,0,0.2); padding: 8px 12px; border-radius: 6px; font-size: 0.8em; margin-top: 8px; }
+        .tech-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tech-tag { background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 12px; font-size: 0.75em; color: white; }
+        
+        .service-status { padding: 8px 12px; border-radius: 6px; font-size: 0.85em; margin-top: 4px; }
+        .service-status.enabled { background: rgba(0,200,100,0.2); color: #00c864; }
+        .service-status.disabled { background: rgba(255,100,100,0.2); color: #ff6464; }
+        .toggle-btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.85em; margin-top: 8px; transition: all 0.3s; }
+        .toggle-btn.enabled { background: rgba(255,100,100,0.3); color: white; }
+        .toggle-btn.disabled { background: rgba(0,200,100,0.3); color: white; }
+        
+        .modal-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .modal-tab { flex: 1; padding: 10px; border: none; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); border-radius: 8px; cursor: pointer; transition: all 0.3s; }
+        .modal-tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .modal-tab:hover { background: rgba(255,255,255,0.2); color: white; }
+        
+        .file-upload-area { border: 2px dashed rgba(255,255,255,0.3); border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .file-upload-area:hover { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.05); }
+        .file-upload-area.dragover { border-color: #667eea; background: rgba(102,126,234,0.1); }
+        .upload-icon { font-size: 3em; display: block; margin-bottom: 10px; }
+        .upload-hint p { margin: 5px 0; color: rgba(255,255,255,0.8); }
+        .upload-hint .small { font-size: 0.8em; color: rgba(255,255,255,0.5); }
+        
+        .main-chat { flex: 1; display: flex; flex-direction: column; background: white; }
+        
+        .chat-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; }
+        .chat-header-left { display: flex; align-items: center; gap: 12px; }
+        .char-avatar { font-size: 2em; }
+        .char-info h1 { font-size: 1.2em; margin-bottom: 2px; }
+        .char-info p { font-size: 0.75em; opacity: 0.8; }
+        .header-actions { display: flex; gap: 8px; }
+        .header-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 12px; transition: background 0.3s; }
+        .header-btn:hover { background: rgba(255,255,255,0.3); }
+        
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; background: #f8f9fa; }
+        .message { margin-bottom: 15px; display: flex; align-items: flex-start; }
+        .message.user { flex-direction: row-reverse; }
+        .message-content { max-width: 70%; margin: 0 10px; padding: 12px 16px; border-radius: 18px; word-wrap: break-word; line-height: 1.5; }
+        .message.ai .message-content { background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .message.user .message-content { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        
+        .chat-input { display: flex; padding: 15px 20px; background: white; border-top: 1px solid #e9ecef; gap: 10px; }
+        .chat-input input { flex: 1; padding: 12px 20px; border: 2px solid #e9ecef; border-radius: 25px; outline: none; font-size: 14px; }
+        .chat-input input:focus { border-color: #667eea; }
+        .chat-input button { padding: 12px 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 14px; }
+        .chat-input button:hover { opacity: 0.9; }
+        .chat-input button:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; z-index: 2000; animation: slideIn 0.3s ease-out; }
+        .toast.success { background: rgba(0,200,100,0.9); }
+        .toast.error { background: rgba(255,100,100,0.9); }
+        .toast.info { background: rgba(100,150,255,0.9); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal h2 { margin-bottom: 20px; color: #333; font-size: 1.2em; }
+        .modal-section { margin-bottom: 16px; }
+        .modal-section label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; font-size: 0.9em; }
+        .modal-section input, .modal-section textarea { width: 100%; padding: 10px 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px; outline: none; }
+        .modal-section input:focus, .modal-section textarea:focus { border-color: #667eea; }
+        .modal-section textarea { min-height: 100px; resize: vertical; }
+        .modal-section .hint { font-size: 0.75em; color: #999; margin-top: 4px; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .modal-actions button { flex: 1; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .modal-actions .save { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; }
+        .modal-actions .cancel { background: #f0f0f0; border: none; color: #666; }
+        
+        @media (max-width: 768px) {
+            .app { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; max-height: 40vh; }
+            .main-chat { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>AI 伴侣</h2>
+                <p>选择或创建你的专属角色</p>
+            </div>
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" onclick="switchTab('characters')">角色</button>
+                <button class="sidebar-tab" onclick="switchTab('settings')">设置</button>
+                <button class="sidebar-tab" onclick="switchTab('about')">关于</button>
+            </div>
+            <div class="sidebar-content">
+                <div id="charactersTab">
+                    <div class="character-list" id="characterList"></div>
+                    <button class="add-character-btn" onclick="showCreateCharacterModal()">+ 创建新角色</button>
+                </div>
+                <div id="settingsTab" style="display:none;">
+                    <div class="settings-section">
+                        <h3>基本信息</h3>
+                        <div class="setting-item">
+                            <label>你的昵称</label>
+                            <input type="text" id="userNameInput" placeholder="对方如何称呼你？" onchange="saveSettings()">
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>角色外观</h3>
+                        <div class="setting-item">
+                            <label>角色头像</label>
+                            <div class="emoji-picker" id="avatarPicker"></div>
+                        </div>
+                        <div class="setting-item">
+                            <label>角色名称</label>
+                            <input type="text" id="charNameInput" placeholder="给TA起个名字" onchange="saveSettings()">
+                        </div>
+                        <div class="setting-item">
+                            <label>角色描述</label>
+                            <textarea id="charDescInput" placeholder="描述TA的性格特点..." onchange="saveSettings()"></textarea>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>AI 参数</h3>
+                        <div class="setting-item">
+                            <label>创造性 (Temperature: 0-2)</label>
+                            <input type="range" id="temperatureInput" min="0" max="2" step="0.1" value="0.8" onchange="saveSettings()">
+                            <div class="range-value" id="temperatureValue">0.8</div>
+                        </div>
+                        <div class="setting-item">
+                            <label>回复长度 (Max Tokens: 50-2000)</label>
+                            <input type="range" id="maxTokensInput" min="50" max="2000" step="50" value="500" onchange="saveSettings()">
+                            <div class="range-value" id="maxTokensValue">500</div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>模型选择</h3>
+                        <div class="setting-item">
+                            <label>当前模型</label>
+                            <div id="currentModelDisplay" class="model-display"></div>
+                        </div>
+                        <div class="setting-item">
+                            <label>选择模型</label>
+                            <div id="modelList" class="model-list"></div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>高级设置</h3>
+                        <div class="setting-item">
+                            <label>角色人设 (System Prompt)</label>
+                            <textarea id="promptInput" placeholder="定义角色的行为和说话方式..." onchange="saveSettings()"></textarea>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>API 设置 (硅基流动)</h3>
+                        <div class="setting-item">
+                            <label>API Key 状态</label>
+                            <div id="apiKeyStatus" class="api-status"></div>
+                        </div>
+                        <div class="setting-item">
+                            <label>API Key</label>
+                            <input type="password" id="apiKeyInput" placeholder="输入你的硅基流动 API Key">
+                            <p class="hint">从 siliconflow.cn 获取 API Key</p>
+                        </div>
+                        <div class="setting-item">
+                            <label>API Base URL</label>
+                            <input type="text" id="baseUrlInput" placeholder="https://api.siliconflow.cn/v1">
+                            <p class="hint">默认使用硅基流动 API，可自定义</p>
+                        </div>
+                        <button class="save-api-btn" onclick="saveApiKey()">保存 API 设置</button>
+                    </div>
+                </div>
+                <div id="aboutTab" style="display:none;">
+                    <div class="settings-section">
+                        <h3>📱 项目介绍</h3>
+                        <div class="about-card">
+                            <p>AI伴侣是一个多平台的智能聊天应用，支持 Web、微信和 Telegram 三种使用方式。</p>
+                            <p>你可以创建和定制专属的AI角色，与TA进行自然流畅的对话。</p>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>💬 微信配置</h3>
+                        <div class="about-card">
+                            <div class="setting-item">
+                                <label>微信机器人状态</label>
+                                <div id="wechatStatus" class="service-status"></div>
+                            </div>
+                            <div class="setting-item">
+                                <label>启用/禁用微信</label>
+                                <button class="toggle-btn" id="wechatToggle" onclick="toggleService('wechat')">切换状态</button>
+                            </div>
+                            <p class="about-tip">💡 启动服务后，用微信扫描终端中的二维码登录</p>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>✈️ Telegram 配置</h3>
+                        <div class="about-card">
+                            <div class="setting-item">
+                                <label>Telegram Bot Token</label>
+                                <input type="password" id="telegramTokenInput" placeholder="从 @BotFather 获取 Token">
+                            </div>
+                            <div class="setting-item">
+                                <label>Telegram 机器人状态</label>
+                                <div id="telegramStatus" class="service-status"></div>
+                            </div>
+                            <div class="setting-item">
+                                <label>启用/禁用 Telegram</label>
+                                <button class="toggle-btn" id="telegramToggle" onclick="toggleService('telegram')">切换状态</button>
+                            </div>
+                            <button class="save-api-btn" onclick="saveTelegramConfig()">保存 Telegram 配置</button>
+                            <p class="about-tip">💡 从 @BotFather 获取 Token 后，重启服务生效</p>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>⚙️ 服务管理</h3>
+                        <div class="about-card">
+                            <div class="setting-item">
+                                <label>Web 服务</label>
+                                <div id="webStatus" class="service-status"></div>
+                            </div>
+                            <div class="setting-item">
+                                <label>启用/禁用 Web</label>
+                                <button class="toggle-btn" id="webToggle" onclick="toggleService('web')">切换状态</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>⚙️ 技术栈</h3>
+                        <div class="about-card">
+                            <div class="tech-tags">
+                                <span class="tech-tag">Node.js</span>
+                                <span class="tech-tag">TypeScript</span>
+                                <span class="tech-tag">OpenAI API</span>
+                                <span class="tech-tag">Express</span>
+                                <span class="tech-tag">wechaty</span>
+                                <span class="tech-tag">Telegraf</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <h3>🔗 相关链接</h3>
+                        <div class="about-card">
+                            <p><strong>API 提供商：</strong>硅基流动 (siliconflow.cn)</p>
+                            <p><strong>支持模型：</strong>Qwen、DeepSeek、GLM 等多种大模型</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-chat">
+            <div class="chat-header">
+                <div class="chat-header-left">
+                    <div class="char-avatar" id="charAvatar">💕</div>
+                    <div class="char-info">
+                        <h1 id="charName">AI 女友</h1>
+                        <p id="charDesc">你的专属智能伙伴</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button class="header-btn" onclick="clearHistory()">清空对话</button>
+                </div>
+            </div>
+            <div class="chat-messages" id="messages"></div>
+            <div class="chat-input">
+                <input type="text" id="input" placeholder="输入消息..." onkeypress="if(event.key==='Enter')send()">
+                <button id="sendBtn" onclick="send()">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="characterModal">
+        <div class="modal">
+            <h2 id="modalTitle">创建新角色</h2>
+            <div class="modal-tabs">
+                <button class="modal-tab active" onclick="switchCreateMode('manual')">手动创建</button>
+                <button class="modal-tab" onclick="switchCreateMode('chatlog')">聊天记录学习</button>
+            </div>
+            
+            <div id="manualCreateForm">
+                <div class="modal-section">
+                    <label>角色ID (英文，唯一标识)</label>
+                    <input type="text" id="newCharId" placeholder="例如: my-girlfriend">
+                </div>
+                <div class="modal-section">
+                    <label>角色名称</label>
+                    <input type="text" id="newCharName" placeholder="例如: 小甜心">
+                </div>
+                <div class="modal-section">
+                    <label>头像</label>
+                    <div class="emoji-picker" id="newCharAvatarPicker"></div>
+                </div>
+                <div class="modal-section">
+                    <label>角色描述</label>
+                    <input type="text" id="newCharDesc" placeholder="简短描述角色特点">
+                </div>
+                <div class="modal-section">
+                    <label>角色人设 (Prompt)</label>
+                    <textarea id="newCharPrompt" placeholder="详细描述角色的性格、说话方式、背景故事等..."></textarea>
+                    <p class="hint">这是AI扮演该角色的核心指令，越详细效果越好</p>
+                </div>
+            </div>
+            
+            <div id="chatlogCreateForm" style="display:none;">
+                <div class="modal-section">
+                    <label>角色ID (英文，唯一标识)</label>
+                    <input type="text" id="chatlogCharId" placeholder="例如: my-friend">
+                </div>
+                <div class="modal-section">
+                    <label>角色名称</label>
+                    <input type="text" id="chatlogCharName" placeholder="例如: 小明">
+                </div>
+                <div class="modal-section">
+                    <label>头像</label>
+                    <div class="emoji-picker" id="chatlogAvatarPicker"></div>
+                </div>
+                <div class="modal-section">
+                    <label>上传微信聊天记录</label>
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" id="chatlogFile" accept=".txt" style="display:none" onchange="handleFileSelect(event)">
+                        <div class="upload-hint">
+                            <span class="upload-icon">📄</span>
+                            <p>点击或拖拽文件到此处</p>
+                            <p class="small">支持 .txt 格式的微信聊天记录导出文件</p>
+                        </div>
+                    </div>
+                    <p class="hint">从微信导出聊天记录：打开聊天 → 右上角菜单 → 聊天记录 → 导出聊天记录</p>
+                </div>
+                <div class="modal-section" id="senderSelectSection" style="display:none;">
+                    <label>选择要学习的发送者</label>
+                    <select id="senderSelect" onchange="updateChatlogPreview()">
+                        <option value="">请选择...</option>
+                    </select>
+                    <p class="hint">选择你想让AI学习的那个人的说话风格</p>
+                </div>
+                <div class="modal-section" id="chatlogPreviewSection" style="display:none;">
+                    <label>生成的角色人设预览</label>
+                    <textarea id="chatlogPromptPreview" readonly rows="8"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button class="cancel" onclick="closeCharacterModal()">取消</button>
+                <button class="save" id="modalSaveBtn" onclick="saveCharacter()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sid = "web-" + Math.random().toString(36).substr(2, 9);
+        const sendBtn = document.getElementById("sendBtn");
+        let settings = {};
+        let characters = [];
+        let selectedAvatar = '💕';
+        let newCharAvatar = '🤖';
+        let isApiKeyConfigured = false;
+        
+        const AVATARS = ['💕', '💖', '💗', '💘', '💝', '🔥', '⭐', '🌟', '✨', '💫', '🌸', '🌺', '🎀', '👑', '🦋', '🐱', '🐶', '🐰', '🦊', '🐻'];
+        
+        // API请求缓存
+        const apiCache = new Map();
+        const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
+        
+        async function fetchWithCache(url, options = {}) {
+            const cacheKey = url + JSON.stringify(options);
+            const cached = apiCache.get(cacheKey);
+            
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return cached.data;
+            }
+            
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                apiCache.set(cacheKey, {
+                    data,
+                    timestamp: Date.now()
+                });
+                
+                return data;
+            } catch (error) {
+                console.error('API请求失败:', error);
+                throw error;
+            }
+        }
+
+        function initAvatarPickers() {
+            const pickerHtml = AVATARS.map(a => `<div class="emoji-option" onclick="selectAvatar('${a}', this)">${a}</div>`).join('');
+            document.getElementById('avatarPicker').innerHTML = pickerHtml;
+            document.getElementById('newCharAvatarPicker').innerHTML = pickerHtml;
+            const chatlogPicker = document.getElementById('chatlogAvatarPicker');
+            if (chatlogPicker) {
+                chatlogPicker.innerHTML = pickerHtml;
+            }
+            initFileUpload();
+        }
+
+        function selectAvatar(avatar, el) {
+            const parent = el.parentElement;
+            parent.querySelectorAll('.emoji-option').forEach(e => e.classList.remove('active'));
+            el.classList.add('active');
+            
+            if (parent.id === 'avatarPicker') {
+                selectedAvatar = avatar;
+                saveSettings();
+            } else if (parent.id === 'chatlogAvatarPicker') {
+                chatlogAvatar = avatar;
+            } else {
+                newCharAvatar = avatar;
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('charactersTab').style.display = tab === 'characters' ? 'block' : 'none';
+            document.getElementById('settingsTab').style.display = tab === 'settings' ? 'block' : 'none';
+            document.getElementById('aboutTab').style.display = tab === 'about' ? 'block' : 'none';
+        }
+
+        let createMode = 'manual';
+        let uploadedFile = null;
+        let chatlogParticipants = [];
+        let chatlogAvatar = '🤖';
+
+        function switchCreateMode(mode) {
+            createMode = mode;
+            document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('manualCreateForm').style.display = mode === 'manual' ? 'block' : 'none';
+            document.getElementById('chatlogCreateForm').style.display = mode === 'chatlog' ? 'block' : 'none';
+        }
+
+        function initFileUpload() {
+            const uploadArea = document.getElementById('fileUploadArea');
+            const fileInput = document.getElementById('chatlogFile');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    handleFile(files[0]);
+                }
+            });
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        }
+
+        async function handleFile(file) {
+            if (!file.name.endsWith('.txt')) {
+                showToast('请上传 .txt 格式的文件', 'error');
+                return;
+            }
+            
+            uploadedFile = file;
+            
+            const uploadArea = document.getElementById('fileUploadArea');
+            uploadArea.innerHTML = `
+                <div class="upload-hint">
+                    <span class="upload-icon">✅</span>
+                    <p>已选择: ${file.name}</p>
+                    <p class="small">点击重新选择</p>
+                </div>
+            `;
+            
+            const formData = new FormData();
+            formData.append('chatlog', file);
+            
+            try {
+                const res = await fetch('/api/chatlog/preview', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.participants && data.participants.length > 0) {
+                    chatlogParticipants = data.participants;
+                    const select = document.getElementById('senderSelect');
+                    select.innerHTML = '<option value="">请选择...</option>' + 
+                        data.participants.map(p => `<option value="${p}">${p}</option>`).join('');
+                    document.getElementById('senderSelectSection').style.display = 'block';
+                    showToast('文件解析成功，请选择要学习的发送者', 'success');
+                } else {
+                    showToast('未能识别聊天记录中的发送者', 'error');
+                }
+            } catch (e) {
+                console.error('预览聊天记录失败:', e);
+                showToast('预览聊天记录失败', 'error');
+            }
+        }
+
+        async function updateChatlogPreview() {
+            const sender = document.getElementById('senderSelect').value;
+            const charName = document.getElementById('chatlogCharName').value.trim();
+            
+            if (!sender || !uploadedFile || !charName) {
+                document.getElementById('chatlogPreviewSection').style.display = 'none';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('chatlog', uploadedFile);
+            formData.append('targetSender', sender);
+            formData.append('characterName', charName);
+            
+            try {
+                const res = await fetch('/api/chatlog/parse', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('chatlogPromptPreview').value = data.prompt;
+                    document.getElementById('chatlogPreviewSection').style.display = 'block';
+                    showToast(`已学习 ${data.messageCount} 条消息`, 'success');
+                } else {
+                    showToast(data.error || '解析失败', 'error');
+                    document.getElementById('chatlogPreviewSection').style.display = 'none';
+                }
+            } catch (e) {
+                console.error('解析聊天记录失败:', e);
+                showToast('解析聊天记录失败', 'error');
+            }
+        }
+
+        async function loadCharacters() {
+            try {
+                const data = await fetchWithCache("/api/characters");
+                characters = data.characters;
+                renderCharacters();
+            } catch (e) {
+                console.error("加载角色列表失败:", e);
+                showToast('加载角色列表失败，请刷新页面重试', 'error');
+            }
+        }
+
+        function renderCharacters() {
+            const list = document.getElementById("characterList");
+            list.innerHTML = characters.map(char => `
+                <div class="character-item ${settings.characterType === char.id ? 'active' : ''}" onclick="selectCharacter('${char.id}')">
+                    <div class="avatar">${char.avatar}</div>
+                    <div class="info">
+                        <h4>${char.name}</h4>
+                        <p>${char.description || '自定义角色'}</p>
+                    </div>
+                    <button class="edit-btn" onclick="event.stopPropagation(); openEditCharacterModal('${char.id}', ${char.isCustom})">✏️</button>
+                    ${char.isCustom ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteCharacter('${char.id}')">×</button>` : ''}
+                </div>
+            `).join("");
+        }
+
+        async function selectCharacter(charId) {
+            try {
+                const res = await fetch("/api/character/switch", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: sid, characterId: charId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    settings = data.settings;
+                    updateDisplay();
+                    clearMessages();
+                    renderCharacters();
+                } else {
+                    showToast('切换角色失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                console.error("切换角色失败:", e);
+                showToast('切换角色失败，请检查网络连接', 'error');
+            }
+        }
+
+        async function deleteCharacter(charId) {
+            if (!confirm('确定要删除这个角色吗？')) return;
+            try {
+                await fetch(`/api/character/${charId}`, { method: "DELETE" });
+                await loadCharacters();
+            } catch (e) {
+                console.error("删除角色失败:", e);
+            }
+        }
+
+        function showCreateCharacterModal() {
+            document.getElementById('modalTitle').textContent = '创建新角色';
+            document.getElementById('newCharId').value = '';
+            document.getElementById('newCharId').disabled = false;
+            document.getElementById('newCharName').value = '';
+            document.getElementById('newCharDesc').value = '';
+            document.getElementById('newCharPrompt').value = '';
+            newCharAvatar = '🤖';
+            document.querySelectorAll('#newCharAvatarPicker .emoji-option').forEach(e => e.classList.remove('active'));
+            document.getElementById('characterModal').classList.add('active');
+        }
+
+        function closeCharacterModal() {
+            document.getElementById('characterModal').classList.remove('active');
+            document.getElementById('modalTitle').textContent = '创建新角色';
+            document.getElementById('newCharId').value = '';
+            document.getElementById('newCharId').disabled = false;
+            document.getElementById('newCharName').value = '';
+            document.getElementById('newCharDesc').value = '';
+            document.getElementById('newCharPrompt').value = '';
+            document.getElementById('chatlogCharId').value = '';
+            document.getElementById('chatlogCharName').value = '';
+            document.getElementById('chatlogPromptPreview').value = '';
+            document.getElementById('senderSelectSection').style.display = 'none';
+            document.getElementById('chatlogPreviewSection').style.display = 'none';
+            newCharAvatar = '🤖';
+            chatlogAvatar = '🤖';
+            uploadedFile = null;
+            editingCharId = null;
+            editingCharIsCustom = false;
+            
+            // 重置文件上传区域
+            const uploadArea = document.getElementById('fileUploadArea');
+            if (uploadArea) {
+                uploadArea.innerHTML = `
+                    <input type="file" id="chatlogFile" accept=".txt" style="display:none" onchange="handleFileSelect(event)">
+                    <div class="upload-hint">
+                        <span class="upload-icon">📄</span>
+                        <p>点击或拖拽文件到此处</p>
+                        <p class="small">支持 .txt 格式的微信聊天记录导出文件</p>
+                    </div>
+                `;
+                initFileUpload();
+            }
+            
+            // 重置创建模式
+            createMode = 'manual';
+            document.querySelectorAll('.modal-tab').forEach((t, i) => {
+                t.classList.toggle('active', i === 0);
+            });
+            document.getElementById('manualCreateForm').style.display = 'block';
+            document.getElementById('chatlogCreateForm').style.display = 'none';
+        }
+
+        async function saveCharacter() {
+            if (editingCharId) {
+                await updateCharacter();
+            } else {
+                if (createMode === 'chatlog') {
+                    await createCharacterFromChatlog();
+                } else {
+                    await createCharacter();
+                }
+            }
+        }
+
+        async function createCharacterFromChatlog() {
+            const id = document.getElementById('chatlogCharId').value.trim();
+            const name = document.getElementById('chatlogCharName').value.trim();
+            const prompt = document.getElementById('chatlogPromptPreview').value.trim();
+            
+            if (!id || !name) {
+                showToast('请填写角色ID和名称', 'error');
+                return;
+            }
+            
+            if (!prompt) {
+                showToast('请先上传聊天记录并选择发送者', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch("/api/character", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, name, avatar: chatlogAvatar, description: `基于聊天记录学习的角色`, prompt })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeCharacterModal();
+                    await loadCharacters();
+                    selectCharacter(id);
+                    showToast('角色创建成功！', 'success');
+                } else {
+                    showToast(data.error, 'error');
+                }
+            } catch (e) {
+                console.error("创建角色失败:", e);
+                showToast('创建角色失败', 'error');
+            }
+        }
+
+        async function createCharacter() {
+            const id = document.getElementById('newCharId').value.trim();
+            const name = document.getElementById('newCharName').value.trim();
+            const desc = document.getElementById('newCharDesc').value.trim();
+            const prompt = document.getElementById('newCharPrompt').value.trim();
+            
+            if (!id || !name || !prompt) {
+                alert('请填写角色ID、名称和人设');
+                return;
+            }
+            
+            try {
+                const res = await fetch("/api/character", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ id, name, avatar: newCharAvatar, description: desc, prompt })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeCharacterModal();
+                    await loadCharacters();
+                    selectCharacter(id);
+                } else {
+                    alert(data.error);
+                }
+            } catch (e) {
+                console.error("创建角色失败:", e);
+            }
+        }
+
+        let editingCharId = null;
+        let editingCharIsCustom = false;
+
+        async function openEditCharacterModal(charId, isCustom) {
+            editingCharId = charId;
+            editingCharIsCustom = isCustom;
+            
+            try {
+                const res = await fetch(`/api/character/${charId}`);
+                const char = await res.json();
+                
+                document.getElementById('modalTitle').textContent = '编辑角色';
+                document.getElementById('newCharId').value = char.id;
+                document.getElementById('newCharId').disabled = true;
+                document.getElementById('newCharName').value = char.name;
+                document.getElementById('newCharDesc').value = char.description || '';
+                document.getElementById('newCharPrompt').value = char.prompt;
+                newCharAvatar = char.avatar;
+                
+                document.querySelectorAll('#newCharAvatarPicker .emoji-option').forEach(e => {
+                    e.classList.toggle('active', e.textContent === char.avatar);
+                });
+                
+                document.getElementById('characterModal').classList.add('active');
+            } catch (e) {
+                console.error("加载角色信息失败:", e);
+            }
+        }
+
+        async function updateCharacter() {
+            if (!editingCharId) return;
+            
+            const name = document.getElementById('newCharName').value.trim();
+            const desc = document.getElementById('newCharDesc').value.trim();
+            const prompt = document.getElementById('newCharPrompt').value.trim();
+            
+            if (!name || !prompt) {
+                alert('请填写角色名称和人设');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/character/${editingCharId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, avatar: newCharAvatar, description: desc, prompt })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeCharacterModal();
+                    await loadCharacters();
+                    if (settings.characterType === editingCharId) {
+                        await loadSettings();
+                    }
+                } else {
+                    alert(data.error);
+                }
+            } catch (e) {
+                console.error("更新角色失败:", e);
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch(`/api/session?sessionId=${sid}`);
+                settings = await res.json();
+                updateDisplay();
+                updateSettingsForm();
+            } catch (e) {
+                console.error("加载设置失败:", e);
+            }
+        }
+
+        function updateDisplay() {
+            document.getElementById("charAvatar").textContent = settings.characterAvatar;
+            document.getElementById("charName").textContent = settings.characterName;
+            document.getElementById("charDesc").textContent = settings.characterDescription || '你的专属智能伙伴';
+            document.title = settings.characterName + " - AI 伴侣";
+        }
+
+        function updateSettingsForm() {
+            document.getElementById("userNameInput").value = settings.userName || '';
+            document.getElementById("charNameInput").value = settings.characterName || '';
+            document.getElementById("charDescInput").value = settings.characterDescription || '';
+            document.getElementById("promptInput").value = settings.characterPrompt || '';
+            document.getElementById("temperatureInput").value = settings.temperature || 0.8;
+            document.getElementById("temperatureValue").textContent = settings.temperature || 0.8;
+            document.getElementById("maxTokensInput").value = settings.maxTokens || 500;
+            document.getElementById("maxTokensValue").textContent = settings.maxTokens || 500;
+            
+            document.querySelectorAll('#avatarPicker .emoji-option').forEach(e => {
+                e.classList.toggle('active', e.textContent === settings.characterAvatar);
+            });
+        }
+
+        async function saveSettings() {
+            const newSettings = {
+                sessionId: sid,
+                userName: document.getElementById("userNameInput").value.trim(),
+                characterName: document.getElementById("charNameInput").value.trim(),
+                characterDescription: document.getElementById("charDescInput").value.trim(),
+                characterAvatar: selectedAvatar,
+                characterPrompt: document.getElementById("promptInput").value.trim(),
+                temperature: parseFloat(document.getElementById("temperatureInput").value),
+                maxTokens: parseInt(document.getElementById("maxTokensInput").value),
+                model: currentModel,
+            };
+            
+            document.getElementById("temperatureValue").textContent = newSettings.temperature;
+            document.getElementById("maxTokensValue").textContent = newSettings.maxTokens;
+            
+            try {
+                const res = await fetch("/api/session", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(newSettings)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    settings = data.settings;
+                    updateDisplay();
+                }
+            } catch (e) {
+                console.error("保存设置失败:", e);
+            }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`/api/history?sessionId=${sid}`);
+                const data = await res.json();
+                if (data.history && data.history.length > 0) {
+                    data.history.forEach(msg => {
+                        addMsg(msg.content, msg.role === 'user');
+                    });
+                }
+            } catch (e) {
+                console.error("加载历史消息失败:", e);
+            }
+        }
+
+        async function clearHistory() {
+            if (!confirm("确定要清空所有聊天记录吗？")) return;
+            try {
+                await fetch("/api/history/clear", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: sid })
+                });
+                clearMessages();
+            } catch (e) {
+                console.error("清空历史失败:", e);
+            }
+        }
+
+        function clearMessages() {
+            document.getElementById("messages").innerHTML = "";
+        }
+
+        async function send() {
+            const inp = document.getElementById("input");
+            const msg = inp.value.trim();
+            if (!msg) return;
+
+            if (msg.length > 500) {
+                showToast('消息过长，请简短一些', 'error');
+                return;
+            }
+
+            addMsg(msg, true);
+            inp.value = "";
+            sendBtn.disabled = true;
+            updateActivity();
+
+            try {
+                const res = await fetch("/api/chat/stream", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: msg, sessionId: sid })
+                });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP error! status: ${res.status}`);
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                let fullReply = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const text = decoder.decode(value);
+                    const lines = text.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') {
+                                break;
+                            }
+                            try {
+                                const json = JSON.parse(data);
+                                if (json.content) {
+                                    fullReply += json.content;
+                                }
+                            } catch (e) {
+                                // 忽略解析错误
+                            }
+                        }
+                    }
+                }
+
+                if (fullReply) {
+                    await sendInSegments(fullReply);
+                } else {
+                    addMsg("抱歉，我没有收到回复...", false);
+                    showToast('AI没有回复，请尝试换个话题', 'info');
+                }
+            } catch (e) {
+                console.error('发送消息失败:', e);
+                addMsg("网络连接失败，请稍后重试...", false);
+                showToast('发送消息失败，请检查网络连接', 'error');
+            } finally {
+                sendBtn.disabled = false;
+                document.getElementById("input").focus();
+            }
+        }
+
+        async function sendInSegments(text) {
+            const segments = splitIntoSegments(text);
+            for (let i = 0; i < segments.length; i++) {
+                const segment = segments[i].trim();
+                if (segment) {
+                    addMsg(segment, false);
+                    if (i < segments.length - 1) {
+                        await sleep(1500 + Math.random() * 2000);
+                    }
+                }
+            }
+        }
+
+        function splitIntoSegments(text) {
+            const segments = [];
+            const delimiters = ['。', '！', '？', '~', '…', '\n'];
+            let current = '';
+            
+            for (const char of text) {
+                current += char;
+                if (delimiters.includes(char) && current.trim().length > 1) {
+                    segments.push(current.trim());
+                    current = '';
+                }
+            }
+            
+            if (current.trim()) {
+                segments.push(current.trim());
+            }
+            
+            return segments.length > 0 ? segments : [text];
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        let msgCounter = 0;
+        function addMsg(txt, isUser, isTyping = false) {
+            const d = document.getElementById("messages");
+            const m = document.createElement("div");
+            const id = "msg-" + (++msgCounter);
+            m.id = id;
+            m.className = "message " + (isUser ? "user" : "ai");
+            const typingClass = isTyping ? ' typing' : '';
+            m.innerHTML = '<div class="message-content' + typingClass + '">' + escapeHtml(txt) + "</div>";
+            d.appendChild(m);
+            d.scrollTop = d.scrollHeight;
+            return id;
+        }
+
+        function removeMsg(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement("div");
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function init() {
+            initAvatarPickers();
+            await loadCharacters();
+            await loadSettings();
+            await loadHistory();
+            await loadApiConfig();
+            await loadModels();
+            await loadServiceConfig();
+            startGreetingCheck();
+        }
+
+        let greetingCheckInterval = null;
+
+        function startGreetingCheck() {
+            checkGreeting();
+            greetingCheckInterval = setInterval(checkGreeting, 60000);
+        }
+
+        async function checkGreeting() {
+            try {
+                const res = await fetch(`/api/greeting/check?sessionId=${sid}`);
+                const data = await res.json();
+                
+                if (data.should && data.message) {
+                    await sendInSegments(data.message);
+                }
+            } catch (e) {
+                console.error("检查问候失败:", e);
+            }
+        }
+
+        async function updateActivity() {
+            try {
+                await fetch("/api/activity", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: sid })
+                });
+            } catch (e) {
+                console.error("更新活动状态失败:", e);
+            }
+        }
+
+        let availableModels = [];
+        let currentModel = '';
+
+        async function loadModels() {
+            try {
+                const data = await fetchWithCache("/api/models");
+                availableModels = data.models;
+                renderModelList();
+                await updateCurrentModelDisplay();
+            } catch (e) {
+                console.error("加载模型列表失败:", e);
+                showToast('加载模型列表失败，请检查网络连接', 'error');
+            }
+        }
+
+        async function updateCurrentModelDisplay() {
+            try {
+                const data = await fetchWithCache("/api/config");
+                currentModel = data.api?.defaultModel || 'Qwen/Qwen2.5-7B-Instruct';
+                
+                const modelInfo = availableModels.find(m => m.id === currentModel);
+                const displayEl = document.getElementById("currentModelDisplay");
+                
+                if (modelInfo) {
+                    displayEl.innerHTML = `
+                        <div class="model-name">${modelInfo.name}</div>
+                        <div class="model-desc">${modelInfo.description}</div>
+                    `;
+                } else {
+                    displayEl.innerHTML = `<div class="model-name">${currentModel}</div>`;
+                }
+                
+                renderModelList();
+            } catch (e) {
+                console.error("更新模型显示失败:", e);
+                showToast('更新模型信息失败，请刷新页面', 'error');
+            }
+        }
+
+        function renderModelList() {
+            const listEl = document.getElementById("modelList");
+            listEl.innerHTML = availableModels.map(model => `
+                <div class="model-item ${currentModel === model.id ? 'active' : ''}" onclick="selectModel('${model.id}')">
+                    <div class="model-info">
+                        <div class="name">${model.name}</div>
+                        <div class="desc">${model.description}</div>
+                    </div>
+                    <span class="model-tag ${model.category === '免费' ? 'free' : 'paid'}">${model.category}</span>
+                </div>
+            `).join('');
+        }
+
+        async function selectModel(modelId) {
+            if (modelId === currentModel) return;
+            
+            try {
+                const res = await fetch("/api/config/model", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ model: modelId })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentModel = modelId;
+                    await updateCurrentModelDisplay();
+                    
+                    const settingsRes = await fetch("/api/session", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sessionId: sid, model: modelId })
+                    });
+                } else {
+                    alert("切换模型失败: " + (data.error || "未知错误"));
+                }
+            } catch (e) {
+                console.error("切换模型失败:", e);
+                alert("切换模型失败，请检查网络连接");
+            }
+        }
+
+        async function loadApiConfig() {
+            try {
+                const data = await fetchWithCache("/api/config");
+                updateApiStatus(data);
+                if (data.api && data.api.baseUrl) {
+                    document.getElementById("baseUrlInput").value = data.api.baseUrl;
+                }
+            } catch (e) {
+                console.error("加载API配置失败:", e);
+                updateApiStatus({ isValid: false });
+                showToast('加载API配置失败，请检查网络连接', 'error');
+            }
+        }
+
+        function updateApiStatus(data) {
+            isApiKeyConfigured = data.isValid;
+            const statusEl = document.getElementById("apiKeyStatus");
+            if (data.isValid) {
+                statusEl.className = "api-status valid";
+                statusEl.textContent = "✓ API Key 已配置 (" + (data.api ? data.api.apiKey : '') + ")";
+            } else {
+                statusEl.className = "api-status invalid";
+                statusEl.textContent = "✗ API Key 未配置，请输入你的 API Key";
+            }
+        }
+
+        async function saveApiKey() {
+            const apiKey = document.getElementById("apiKeyInput").value.trim();
+            const baseUrl = document.getElementById("baseUrlInput").value.trim() || "https://api.siliconflow.cn/v1";
+            
+            if (!apiKey && !isApiKeyConfigured) {
+                alert("请输入 API Key");
+                return;
+            }
+            
+            const btn = document.querySelector(".save-api-btn");
+            btn.textContent = "保存中...";
+            btn.disabled = true;
+            
+            try {
+                const body = { baseUrl };
+                if (apiKey) {
+                    body.apiKey = apiKey;
+                }
+                
+                const res = await fetch("/api/config/apikey", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    updateApiStatus(data);
+                    document.getElementById("apiKeyInput").value = "";
+                    alert("设置保存成功！");
+                } else {
+                    alert("保存失败: " + (data.error || "未知错误"));
+                }
+            } catch (e) {
+                console.error("保存设置失败:", e);
+                alert("保存失败，请检查网络连接");
+            } finally {
+                btn.textContent = "保存 API 设置";
+                btn.disabled = false;
+            }
+        }
+
+        let serviceConfig = { wechat: true, telegram: false, web: true };
+
+        async function loadServiceConfig() {
+            try {
+                const res = await fetch("/api/config/full");
+                const data = await res.json();
+                serviceConfig = data.services || { wechat: true, telegram: false, web: true };
+                updateServiceStatus();
+            } catch (e) {
+                console.error("加载服务配置失败:", e);
+            }
+        }
+
+        function updateServiceStatus() {
+            ['wechat', 'telegram', 'web'].forEach(service => {
+                const statusEl = document.getElementById(`${service}Status`);
+                const toggleBtn = document.getElementById(`${service}Toggle`);
+                
+                if (statusEl) {
+                    statusEl.className = `service-status ${serviceConfig[service] ? 'enabled' : 'disabled'}`;
+                    statusEl.textContent = serviceConfig[service] ? '✓ 已启用' : '✗ 已禁用';
+                }
+                
+                if (toggleBtn) {
+                    toggleBtn.className = `toggle-btn ${serviceConfig[service] ? 'enabled' : 'disabled'}`;
+                    toggleBtn.textContent = serviceConfig[service] ? '点击禁用' : '点击启用';
+                }
+            });
+        }
+
+        async function toggleService(service) {
+            const newState = !serviceConfig[service];
+            
+            try {
+                const res = await fetch("/api/config/services", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        enableWechat: service === 'wechat' ? newState : serviceConfig.wechat,
+                        enableTelegram: service === 'telegram' ? newState : serviceConfig.telegram,
+                        enableWeb: service === 'web' ? newState : serviceConfig.web
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    serviceConfig = data.services;
+                    updateServiceStatus();
+                    showToast(`${service === 'wechat' ? '微信' : service === 'telegram' ? 'Telegram' : 'Web'} 服务已${newState ? '启用' : '禁用'}`, 'success');
+                }
+            } catch (e) {
+                console.error("切换服务状态失败:", e);
+                showToast('切换服务状态失败', 'error');
+            }
+        }
+
+        async function saveTelegramConfig() {
+            const token = document.getElementById("telegramTokenInput").value.trim();
+            
+            if (!token) {
+                showToast('请输入 Telegram Bot Token', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch("/api/config/telegram", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showToast('Telegram 配置已保存，请重启服务生效', 'success');
+                    document.getElementById("telegramTokenInput").value = "";
+                }
+            } catch (e) {
+                console.error("保存 Telegram 配置失败:", e);
+                showToast('保存 Telegram 配置失败', 'error');
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
