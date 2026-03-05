@@ -14,8 +14,160 @@ interface ParsedChatLog {
     targetMessages: ChatMessage[];
 }
 
+// ===== 数据清洗工具 =====
+
+/**
+ * 微信系统消息过滤列表
+ * 这些是微信自动生成的系统提示，不属于任何人的真实聊天内容
+ */
+const SYSTEM_MESSAGE_PATTERNS = [
+    /^你(已)?撤回了?一条消息$/,
+    /^".*"撤回了?一条消息$/,
+    /^你发起了(语音|视频)通话$/,
+    /^(语音|视频)通话时长\s*\d/,
+    /^(语音|视频)通话已取消$/,
+    /^(语音|视频)通话未接听$/,
+    /^你(已)?发送了?\s*位置$/,
+    /^你(已)?发送了?\s*一个链接$/,
+    /^你(已)?领取了?.*的红包$/,
+    /^.*领取了?你的红包$/,
+    /^你发出了一个红包/,
+    /^收到红包/,
+    /^以上是打招呼的内容/,
+    /^你已添加了.*你们可以开始聊天了/,
+    /^你通过.*验证.*成为好友/,
+    /^你邀请.*加入了群聊$/,
+    /^.*加入了群聊$/,
+    /^.*被移出了群聊$/,
+    /^群公告$/,
+    /^你修改了群名为/,
+    /^<\/?msg>/,          // 微信 XML 标签
+    /^<\/?appmsg>/,       // 微信应用消息 XML
+];
+
+/**
+ * 无实际文本价值的占位符消息
+ * 这些消息在聊天记录导出后只留下了一个方括号标签，不包含可学习的文字内容
+ */
+const PLACEHOLDER_PATTERNS = [
+    /^\[图片\]$/,
+    /^\[照片\]$/,
+    /^\[动画表情\]$/,
+    /^\[表情\]$/,
+    /^\[语音\]$/,
+    /^\[视频\]$/,
+    /^\[文件\]$/,
+    /^\[链接\]$/,
+    /^\[位置\]$/,
+    /^\[名片\]$/,
+    /^\[音乐\]$/,
+    /^\[小程序\]$/,
+    /^\[转账\]$/,
+    /^\[红包\]$/,
+    /^\[拍了拍\]$/,
+    /^\[戳了戳\]$/,
+    /^\[GIF\]$/i,
+    /^\[sticker\]$/i,
+    /^\[Voice\]$/i,
+    /^\[Image\]$/i,
+    /^\[Video\]$/i,
+];
+
+/**
+ * 检测一行文本是否是微信系统消息
+ */
+function isSystemMessage(text: string): boolean {
+    const trimmed = text.trim();
+    return SYSTEM_MESSAGE_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
+/**
+ * 检测一行文本是否是无价值占位符
+ */
+function isPlaceholder(text: string): boolean {
+    const trimmed = text.trim();
+    return PLACEHOLDER_PATTERNS.some(pattern => pattern.test(trimmed));
+}
+
+/**
+ * 检测并移除连续重复的消息（刷屏保护）
+ * 如果连续超过 3 条完全相同的内容，只保留 1 条
+ */
+function deduplicateConsecutive(messages: ChatMessage[]): ChatMessage[] {
+    if (messages.length === 0) return messages;
+
+    const result: ChatMessage[] = [messages[0]];
+    let consecutiveCount = 1;
+
+    for (let i = 1; i < messages.length; i++) {
+        if (messages[i].content === messages[i - 1].content &&
+            messages[i].sender === messages[i - 1].sender) {
+            consecutiveCount++;
+            if (consecutiveCount <= 2) {
+                // 保留前 2 条（有些人确实喜欢表达强调时重复两次）
+                result.push(messages[i]);
+            }
+            // 超过 2 条则直接丢弃
+        } else {
+            consecutiveCount = 1;
+            result.push(messages[i]);
+        }
+    }
+
+    return result;
+}
+
+/**
+ * 自动检测文件编码并转为 UTF-8 字符串
+ * 支持 UTF-8 (含 BOM)、UTF-16 LE/BE、GBK
+ */
+function decodeFileBuffer(buffer: Buffer): string {
+    // 1. 检测 UTF-8 BOM
+    if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+        return buffer.slice(3).toString('utf-8');
+    }
+
+    // 2. 检测 UTF-16 LE BOM
+    if (buffer[0] === 0xFF && buffer[1] === 0xFE) {
+        return buffer.slice(2).toString('utf16le');
+    }
+
+    // 3. 检测 UTF-16 BE BOM (翻转字节序)
+    if (buffer[0] === 0xFE && buffer[1] === 0xFF) {
+        // Node.js 没有原生 utf16be，需要手动翻转
+        const swapped = Buffer.alloc(buffer.length - 2);
+        for (let i = 2; i < buffer.length - 1; i += 2) {
+            swapped[i - 2] = buffer[i + 1];
+            swapped[i - 1] = buffer[i];
+        }
+        return swapped.toString('utf16le');
+    }
+
+    // 4. 尝试 UTF-8 解码，检查是否出现乱码
+    const utf8Result = buffer.toString('utf-8');
+    // 如果含有大量 replacement character (U+FFFD)，可能是 GBK
+    const replacementCount = (utf8Result.match(/\uFFFD/g) || []).length;
+    if (replacementCount > utf8Result.length * 0.05) {
+        // 大于 5% 乱码率，尝试 GBK 解码
+        try {
+            const { TextDecoder: TD } = require('util');
+            const decoder = new TD('gbk');
+            return decoder.decode(buffer);
+        } catch {
+            // 如果 GBK 解码器不可用，回退到 latin1 再做最后挣扎
+            console.warn('[Parser] GBK decoder unavailable, falling back to UTF-8');
+        }
+    }
+
+    return utf8Result;
+}
+
+
+// ===== 核心解析逻辑 =====
+
 export function parseWeChatChatLog(filePath: string, targetSender?: string): ParsedChatLog {
-    const content = fs.readFileSync(filePath, 'utf-8');
+    const buffer = fs.readFileSync(filePath);
+    const content = decodeFileBuffer(buffer);
     return parseWeChatChatLogContent(content, targetSender);
 }
 
@@ -33,6 +185,12 @@ export function parseWeChatChatLogContent(content: string, targetSender?: string
         const trimmedLine = line.trim();
         if (!trimmedLine) continue;
 
+        // 跳过系统消息和占位符
+        if (isSystemMessage(trimmedLine) || isPlaceholder(trimmedLine)) {
+            continue;
+        }
+
+        // 标准日期行匹配（微信导出格式: "2024年3月15日 下午 2:30"）
         const dateMatch = trimmedLine.match(/^(\d{4}年\d{1,2}月\d{1,2}日\s*(上午|下午|晚上)?\s*\d{1,2}:\d{2})$/);
         if (dateMatch) {
             if (currentSender && currentContent) {
@@ -87,7 +245,12 @@ export function parseWeChatChatLogContent(content: string, targetSender?: string
         });
     }
 
-    const validLines = lines.map(l => l.trim()).filter(l => l.length > 0);
+    const validLines = lines.map(l => l.trim()).filter(l => {
+        if (l.length === 0) return false;
+        if (isSystemMessage(l)) return false;
+        if (isPlaceholder(l)) return false;
+        return true;
+    });
 
     // Fallback: If < 2 participants detected OR we parsed very few messages compared to the text length 
     // (meaning the regex matched random colons instead of real names in raw text)
@@ -108,12 +271,23 @@ export function parseWeChatChatLogContent(content: string, targetSender?: string
         }
     }
 
+    // 应用连续消息去重保护
+    const dedupedMessages = deduplicateConsecutive(messages);
+
+    // 二次清洗：过滤掉消息内容本身是系统消息或纯占位符的条目
+    const cleanMessages = dedupedMessages.filter(m => {
+        if (isSystemMessage(m.content)) return false;
+        if (isPlaceholder(m.content)) return false;
+        if (m.content.trim().length === 0) return false;
+        return true;
+    });
+
     const targetMessages = targetSender
-        ? messages.filter(m => m.sender === targetSender)
-        : messages;
+        ? cleanMessages.filter(m => m.sender === targetSender)
+        : cleanMessages;
 
     return {
-        messages,
+        messages: cleanMessages,
         participants: Array.from(participants),
         targetMessages
     };

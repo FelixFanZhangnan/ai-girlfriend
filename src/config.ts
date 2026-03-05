@@ -194,3 +194,80 @@ export function getAvailableModels(): ModelInfo[] {
     // SiliconFlow 和其他平台默认返回 SiliconFlow 列表
     return SILICONFLOW_MODELS;
 }
+
+/**
+ * 启动时主动验证 API Key 是否真正可用（而不只是检查字符串是否存在）
+ * 通过一个极小的 API 请求来测试连通性和权限
+ * 返回: { valid: boolean, message: string }
+ */
+export async function validateApiKeyOnStartup(): Promise<{ valid: boolean; message: string }> {
+    if (!currentConfig.openaiApiKey || currentConfig.openaiApiKey.length < 10) {
+        return {
+            valid: false,
+            message: '❌ 未配置 API Key！\n' +
+                '   请在 .env 文件中设置 OPENAI_API_KEY，或使用 Launcher 界面配置。\n' +
+                '   免费 Key 申请地址：\n' +
+                '   • NVIDIA NIM: https://build.nvidia.com/\n' +
+                '   • 硅基流动:   https://siliconflow.cn/'
+        };
+    }
+
+    try {
+        // 发个最轻量的请求来验证 Key 有效性
+        const OpenAI = (await import('openai')).default;
+        const client = new OpenAI({
+            apiKey: currentConfig.openaiApiKey,
+            baseURL: currentConfig.openaiBaseUrl,
+            timeout: 10000, // 10秒超时
+        });
+
+        // 尝试列出模型（最轻量的 API 调用）
+        await client.models.list();
+
+        return { valid: true, message: '✅ API Key 验证通过，连接正常！' };
+    } catch (error: any) {
+        const status = error?.status;
+
+        if (status === 401) {
+            return {
+                valid: false,
+                message: '❌ API Key 无效（401 Unauthorized）！\n' +
+                    '   你的 Key 格式不正确或已被撤销。\n' +
+                    '   请重新申请一个有效的 API Key。'
+            };
+        }
+
+        if (status === 403) {
+            return {
+                valid: false,
+                message: '⚠️  API Key 权限不足或余额已耗尽（403 Forbidden）！\n' +
+                    '   可能原因：\n' +
+                    '   • API Key 余额不足或已欠费\n' +
+                    '   • Key 已过期需要重新生成\n' +
+                    '   • 当前套餐不支持该模型\n' +
+                    '   请前往对应平台检查你的账户状态。'
+            };
+        }
+
+        if (status === 429) {
+            // 频率限制说明 Key 是有效的，只是太频繁
+            return { valid: true, message: '✅ API Key 有效（当前请求频率过高，稍后自动恢复）' };
+        }
+
+        if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+            return {
+                valid: false,
+                message: '❌ 无法连接到 API 服务器！\n' +
+                    `   地址: ${currentConfig.openaiBaseUrl}\n` +
+                    '   请检查你的网络连接或 Base URL 是否正确。'
+            };
+        }
+
+        // 其他错误（如 500 等服务端错误），Key 本身可能是好的
+        return {
+            valid: true,
+            message: `⚠️  API 连接测试异常（${status || error?.code || '未知错误'}），但 Key 可能有效，继续启动...`
+        };
+    }
+}
+

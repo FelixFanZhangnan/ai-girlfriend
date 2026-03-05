@@ -324,7 +324,7 @@ export function getCharacterInfo(characterId: string): { name: string; avatar: s
 }
 
 export function addCustomCharacter(id: string, name: string, avatar: string, description: string, prompt: string): boolean {
-    if (DEFAULT_CHARACTERS[id]) return false;
+    if (DEFAULT_CHARACTERS[id] || customCharacters.has(id)) return false;
     customCharacters.set(id, { id, name, avatar, description, prompt });
     saveCustomCharacters(customCharacters);
     return true;
@@ -566,15 +566,15 @@ export async function getReply(sessionId: string, message: string): Promise<stri
             systemPrompt += `\n对方的名字叫"${session.userName}"，你在回复时要用这个名字称呼对方，让对方感觉更亲切。`;
         }
 
-        // --- 第一阶段：RAG 记忆召唤 ---
+        // --- RAG 记忆召唤（结构化 XML 标签注入） ---
         try {
             const ragDocs = await searchSimilarConversations(session.characterType, message, 3);
             if (ragDocs && ragDocs.length > 0) {
-                systemPrompt += `\n\n【参考真实历史聊天记录】\n当曾经出现类似话题时，你们是这样对话的：\n`;
-                ragDocs.forEach(doc => {
-                    systemPrompt += `对方："${doc.userQuery}" -> 你当时这么回："${doc.characterReply}"\n`;
+                systemPrompt += `\n\n<memory_context>\n以下是你们过去真实发生过的类似对话记忆，请参考这些记忆中你的语气和逻辑来回应当前的新消息：\n`;
+                ragDocs.forEach((doc, i) => {
+                    systemPrompt += `<memory_${i + 1}>\n  对方说: "${doc.userQuery}"\n  你回复: "${doc.characterReply}"\n</memory_${i + 1}>\n`;
                 });
-                systemPrompt += `\n请务必参考并模仿上述这种真实的答复语气、常用语和思维逻辑来构思当前的新回复。但切记，只模仿习惯，不要生搬硬套重复上面的话。`;
+                systemPrompt += `</memory_context>\n注意：只模仿上述记忆中的语气习惯和思维方式，不要原封不动复述记忆内容。`;
             }
         } catch (e) {
             console.error('[Chat] RAG retrieval failed in getReply:', e);
@@ -674,16 +674,16 @@ export async function* getReplyStream(sessionId: string, message: string, imageB
             userContent = message;
         }
 
-        // --- 第一阶段：RAG 记忆召唤 ---
+        // --- RAG 记忆召唤（结构化 XML 标签注入） ---
         try {
             if (typeof message === 'string' && message.trim().length > 0) {
                 const ragDocs = await searchSimilarConversations(session.characterType, message, 3);
                 if (ragDocs && ragDocs.length > 0) {
-                    systemPrompt += `\n\n【参考真实历史聊天记录】\n当曾经出现类似话题时，你们是这样对话的：\n`;
-                    ragDocs.forEach(doc => {
-                        systemPrompt += `对方："${doc.userQuery}" -> 你当时这么回："${doc.characterReply}"\n`;
+                    systemPrompt += `\n\n<memory_context>\n以下是你们过去真实发生过的类似对话记忆，请参考这些记忆中你的语气和逻辑来回应当前的新消息：\n`;
+                    ragDocs.forEach((doc, i) => {
+                        systemPrompt += `<memory_${i + 1}>\n  对方说: "${doc.userQuery}"\n  你回复: "${doc.characterReply}"\n</memory_${i + 1}>\n`;
                     });
-                    systemPrompt += `\n请务必参考并模仿上述这种真实的答复语气、常用语和思维逻辑来构思当前的新回复。但切记，只模仿习惯，不要生硬重复。`;
+                    systemPrompt += `</memory_context>\n注意：只模仿上述记忆中的语气习惯和思维方式，不要原封不动复述记忆内容。`;
                 }
             }
         } catch (e) {
