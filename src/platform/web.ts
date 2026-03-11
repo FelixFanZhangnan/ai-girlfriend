@@ -127,7 +127,7 @@ app.get('/api/health', async (_req, res) => {
     }
 });
 
-app.post('/api/config/model', (req, res) => {
+app.post('/api/config/model', requireAuth, (req, res) => {
     const { model } = req.body;
     if (!model) {
         res.status(400).json({ error: '模型ID不能为空' });
@@ -168,7 +168,7 @@ app.post('/api/config/apikey', requireAuth, (req, res) => {
     });
 });
 
-app.post('/api/config/telegram', (req, res) => {
+app.post('/api/config/telegram', requireAuth, (req, res) => {
     const { token } = req.body;
 
     if (token) {
@@ -183,7 +183,7 @@ app.post('/api/config/telegram', (req, res) => {
     });
 });
 
-app.post('/api/config/services', (req, res) => {
+app.post('/api/config/services', requireAuth, (req, res) => {
     const { enableWechat, enableTelegram, enableWeb } = req.body;
 
     updateServiceConfig({ enableWechat, enableTelegram, enableWeb });
@@ -296,7 +296,7 @@ app.get('/api/character/:id', (req, res) => {
     });
 });
 
-app.post('/api/character', upload.single('chatlog'), async (req, res) => {
+app.post('/api/character', requireAuth, upload.single('chatlog'), async (req, res) => {
     const { id, name, avatar, description, prompt, age, profession, targetSender } = req.body;
 
     // 基本校验
@@ -360,7 +360,7 @@ app.post('/api/character', upload.single('chatlog'), async (req, res) => {
 });
 
 // 追加聊天记录训练（仅限已存在的自定义角色）
-app.post('/api/character/:id/append-chatlog', upload.single('chatlog'), async (req, res) => {
+app.post('/api/character/:id/append-chatlog', requireAuth, upload.single('chatlog'), async (req, res) => {
     const characterId = req.params.id;
 
     if (!isCustomCharacter(characterId as string)) {
@@ -403,9 +403,9 @@ app.post('/api/character/:id/append-chatlog', upload.single('chatlog'), async (r
     });
 });
 
-app.put('/api/character/:id', (req, res) => {
+app.put('/api/character/:id', requireAuth, (req, res) => {
     const { name, avatar, description, prompt } = req.body;
-    const success = updateCharacter(req.params.id, name, avatar, description, prompt);
+    const success = updateCharacter(req.params.id as string, name, avatar, description, prompt);
     if (!success) {
         res.status(400).json({ error: '角色不存在' });
         return;
