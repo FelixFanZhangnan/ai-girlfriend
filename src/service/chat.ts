@@ -603,35 +603,70 @@ function getFallbackModel(currentModel: string): string | null {
     return null;
 }
 
+// ===== 通用 Prompt 构建函数 =====
+async function buildSystemPrompt(sessionId: string, session: ChatSession, message?: string, isInitiative: boolean = false): Promise<string> {
+    let systemPrompt = session.characterPrompt;
+    systemPrompt += `\n\n你的名字叫"${session.characterName}"`;
+    if (isInitiative) {
+        systemPrompt += `。`;
+        systemPrompt += `\n你现在要主动发起对话，像真人发微信一样自然。`;
+        systemPrompt += `\n回复要简短自然，像发微信一样，不要太长。`;
+    } else {
+        systemPrompt += `，在对话中要自然地用这个名字介绍自己或称呼自己。`;
+    }
+
+    if (!isInitiative && session.characterDescription) {
+        systemPrompt += `\n你的性格特点：${session.characterDescription}`;
+    }
+
+    if (session.userName) {
+        if (isInitiative) {
+            systemPrompt += `\n对方的名字叫"${session.userName}"。`;
+        } else {
+            systemPrompt += `\n对方的名字叫"${session.userName}"，你在回复时要用这个名字称呼对方，让对方感觉更亲切。`;
+        }
+    }
+
+    // 注入长期记忆
+    if (!isInitiative) {
+        const memory = getUserMemory(sessionId);
+        const memoryFacts = Object.values(memory);
+        if (memoryFacts.length > 0) {
+            systemPrompt += `\n\n【关于对方的记忆事实】\n（你已经知道对方的这些信息，可以在对话中自然地提及或利用这些信息，但不要刻意生硬地一次性全列出来）：\n` +
+                memoryFacts.map((fact: string) => `- ${fact}`).join('\n');
+        }
+    }
+
+    // --- RAG 记忆召唤（结构化 XML 标签注入） ---
+    if (!isInitiative && typeof message === 'string' && message.trim().length > 0) {
+        try {
+            const ragDocs = await searchSimilarConversations(session.characterType, message, 3);
+            if (ragDocs && ragDocs.length > 0) {
+                systemPrompt += `\n\n<memory_context>\n以下是你们过去真实发生过的类似对话记忆，请参考这些记忆中你的语气和逻辑来回应当前的新消息：\n`;
+                ragDocs.forEach((doc: any, i: number) => {
+                    systemPrompt += `<memory_${i + 1}>\n  对方说: "${doc.userQuery}"\n  你回复: "${doc.characterReply}"\n</memory_${i + 1}>\n`;
+                });
+                systemPrompt += `</memory_context>\n注意：只模仿上述记忆中的语气习惯和思维方式，不要原封不动复述记忆内容。`;
+            }
+        } catch (e) {
+            console.error('[Chat] RAG retrieval failed:', e);
+        }
+    }
+
+    return systemPrompt;
+}
+
 export async function getReply(sessionId: string, message: string): Promise<string> {
     const mutex = getSessionMutex(sessionId);
 
     return mutex.runExclusive(async () => {
         const session = getOrCreateSession(sessionId);
 
-        let systemPrompt = session.characterPrompt;
-        systemPrompt += `\n\n你的名字叫"${session.characterName}"，在对话中要自然地用这个名字介绍自己或称呼自己。`;
+        const systemPrompt = await buildSystemPrompt(sessionId, session, message);
 
-        if (session.characterDescription) {
-            systemPrompt += `\n你的性格特点：${session.characterDescription}`;
-        }
-
-        if (session.userName) {
-            systemPrompt += `\n对方的名字叫"${session.userName}"，你在回复时要用这个名字称呼对方，让对方感觉更亲切。`;
-        }
-
-        // --- RAG 记忆召唤（结构化 XML 标签注入） ---
-        try {
-            const ragDocs = await searchSimilarConversations(session.characterType, message, 3);
-            if (ragDocs && ragDocs.length > 0) {
-                systemPrompt += `\n\n<memory_context>\n以下是你们过去真实发生过的类似对话记忆，请参考这些记忆中你的语气和逻辑来回应当前的新消息：\n`;
-                ragDocs.forEach((doc, i) => {
-                    systemPrompt += `<memory_${i + 1}>\n  对方说: "${doc.userQuery}"\n  你回复: "${doc.characterReply}"\n</memory_${i + 1}>\n`;
-                });
-                systemPrompt += `</memory_context>\n注意：只模仿上述记忆中的语气习惯和思维方式，不要原封不动复述记忆内容。`;
-            }
-        } catch (e) {
-            console.error('[Chat] RAG retrieval failed in getReply:', e);
+        // 异步提取新记忆 (不阻塞主回复流程)
+        if (typeof message === 'string' && message.length > 4) {
+            extractMemoryBackground(sessionId, message).catch(e => console.error('提取记忆失败:', e));
         }
 
         const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -693,28 +728,11 @@ export async function* getReplyStream(sessionId: string, message: string, imageB
     try {
         const session = getOrCreateSession(sessionId);
 
-        let systemPrompt = session.characterPrompt;
-        systemPrompt += `\n\n你的名字叫"${session.characterName}"，在对话中要自然地用这个名字介绍自己或称呼自己。`;
-
-        if (session.characterDescription) {
-            systemPrompt += `\n你的性格特点：${session.characterDescription}`;
-        }
-
-        if (session.userName) {
-            systemPrompt += `\n对方的名字叫"${session.userName}"，你在回复时要用这个名字称呼对方，让对方感觉更亲切。`;
-        }
-
-        // 注入长期记忆
-        const memory = getUserMemory(sessionId);
-        const memoryFacts = Object.values(memory);
-        if (memoryFacts.length > 0) {
-            systemPrompt += `\n\n【关于对方的记忆事实】\n（你已经知道对方的这些信息，可以在对话中自然地提及或利用这些信息，但不要刻意生硬地一次性全列出来）：\n` +
-                memoryFacts.map(fact => `- ${fact}`).join('\n');
-        }
+        const systemPrompt = await buildSystemPrompt(sessionId, session, message);
 
         // 异步提取新记忆 (不阻塞主回复流程)
         if (typeof message === 'string' && message.length > 4) {
-            extractMemoryBackground(sessionId, message);
+            extractMemoryBackground(sessionId, message).catch(e => console.error('提取记忆失败:', e));
         }
 
         // 构建用户消息：如果有图片则用数组格式
@@ -726,22 +744,6 @@ export async function* getReplyStream(sessionId: string, message: string, imageB
             ];
         } else {
             userContent = message;
-        }
-
-        // --- RAG 记忆召唤（结构化 XML 标签注入） ---
-        try {
-            if (typeof message === 'string' && message.trim().length > 0) {
-                const ragDocs = await searchSimilarConversations(session.characterType, message, 3);
-                if (ragDocs && ragDocs.length > 0) {
-                    systemPrompt += `\n\n<memory_context>\n以下是你们过去真实发生过的类似对话记忆，请参考这些记忆中你的语气和逻辑来回应当前的新消息：\n`;
-                    ragDocs.forEach((doc, i) => {
-                        systemPrompt += `<memory_${i + 1}>\n  对方说: "${doc.userQuery}"\n  你回复: "${doc.characterReply}"\n</memory_${i + 1}>\n`;
-                    });
-                    systemPrompt += `</memory_context>\n注意：只模仿上述记忆中的语气习惯和思维方式，不要原封不动复述记忆内容。`;
-                }
-            }
-        } catch (e) {
-            console.error('[Chat Stream] RAG retrieval failed:', e);
         }
 
         const messages: Array<any> = [
@@ -1000,14 +1002,7 @@ export function shouldSendGreeting(sessionId: string): { should: boolean; messag
 export async function generateInitiativeMessage(sessionId: string): Promise<string> {
     const session = getOrCreateSession(sessionId);
 
-    let systemPrompt = session.characterPrompt;
-    systemPrompt += `\n\n你的名字叫"${session.characterName}"。`;
-    systemPrompt += `\n你现在要主动发起对话，像真人发微信一样自然。`;
-    systemPrompt += `\n回复要简短自然，像发微信一样，不要太长。`;
-
-    if (session.userName) {
-        systemPrompt += `\n对方的名字叫"${session.userName}"。`;
-    }
+    const systemPrompt = await buildSystemPrompt(sessionId, session, undefined, true);
 
     const timeOfDay = getTimeOfDay();
     const contextPrompt = `现在时间是${new Date().toLocaleTimeString('zh-CN')}，时间段是${timeOfDay}。请主动发起一句简短的问候或聊天，要自然，像真人发微信一样。`;
