@@ -267,8 +267,10 @@ function cleanupExpiredSessions() {
             sessions.delete(id);
             lastActivityTime.delete(id);
             lastGreetingTime.delete(id);
-            // 同时清理该用户的所有角色历史
+            // 同时清理该用户的所有角色历史和记忆
             characterHistories.delete(id);
+            sessionMutexes.delete(id);
+            userMemories.delete(id);
         }
     }
 }
