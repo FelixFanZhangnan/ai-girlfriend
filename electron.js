@@ -19,9 +19,35 @@ function getEnvPath() {
     if (isDev) {
         return path.join(__dirname, '.env');
     }
-    const resourceEnv = path.join(process.resourcesPath, '.env');
-    if (fs.existsSync(resourceEnv)) return resourceEnv;
-    return path.join(__dirname, '.env');
+    // Electron 生产环境：使用用户数据目录存储配置
+    const userDataDir = app.getPath('userData');
+    const configPath = path.join(userDataDir, 'config.env');
+
+    // 首次启动：创建空的默认配置模板
+    if (!fs.existsSync(configPath)) {
+        const defaultConfig = [
+            '# AI 女友 - 运行时配置',
+            '# 通过 GUI 设置页面修改，或手动编辑此文件',
+            '',
+            'OPENAI_API_KEY=',
+            'OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1',
+            'DEFAULT_MODEL=qwen/qwen3.5-397b-a17b',
+            'CHARACTER_TYPE=girlfriend',
+            'WEB_PORT=3000',
+            'ENABLE_WEB=true',
+            'ENABLE_WECHAT=true',
+            'ENABLE_TELEGRAM=false',
+            'TELEGRAM_BOT_TOKEN=',
+            '',
+        ].join('\n');
+        try {
+            fs.writeFileSync(configPath, defaultConfig, 'utf-8');
+            console.log(`首次启动：已在 ${configPath} 创建默认配置`);
+        } catch (e) {
+            console.error('创建默认配置失败:', e);
+        }
+    }
+    return configPath;
 }
 
 function readEnvConfig() {
@@ -64,7 +90,7 @@ function readEnvConfig() {
             }
         }
     } catch (e) {
-        console.error('读取 .env 失败:', e);
+        console.error('读取配置失败:', e);
     }
 
     return config;
@@ -73,7 +99,7 @@ function readEnvConfig() {
 function saveEnvConfig(config) {
     const envPath = getEnvPath();
     const lines = [
-        '# SiliconFlow 硅基流动 / NVIDIA NIM 配置',
+        '# AI 女友 - 运行时配置',
         `OPENAI_API_KEY=${config.apiKey || ''}`,
         `OPENAI_BASE_URL=${config.baseUrl || 'https://integrate.api.nvidia.com/v1'}`,
         '',
@@ -88,9 +114,9 @@ function saveEnvConfig(config) {
     ];
     try {
         fs.writeFileSync(envPath, lines.join('\n'), 'utf-8');
-        console.log('.env 配置已保存');
+        console.log(`配置已保存到 ${envPath}`);
     } catch (e) {
-        console.error('保存 .env 失败:', e);
+        console.error('保存配置失败:', e);
         throw e;
     }
 }

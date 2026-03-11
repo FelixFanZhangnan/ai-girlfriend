@@ -61,12 +61,7 @@
       "preload.js",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": ".env",
-        "to": ".env"
-      }
-    ],
+    "extraResources": [],
     "win": {
       "target": [
         {
