@@ -197,11 +197,11 @@ app.post('/api/config/services', requireAuth, (req, res) => {
     });
 });
 
-app.get('/api/config/full', (_req, res) => {
+app.get('/api/config/full', requireAuth, (_req, res) => {
     res.json(getFullConfig());
 });
 
-app.post('/api/chatlog/parse', upload.single('chatlog'), async (req, res) => {
+app.post('/api/chatlog/parse', requireAuth, upload.single('chatlog'), async (req, res) => {
     try {
         if (!req.file) {
             res.status(400).json({ error: '请上传聊天记录文件' });
@@ -229,7 +229,7 @@ app.post('/api/chatlog/parse', upload.single('chatlog'), async (req, res) => {
     }
 });
 
-app.post('/api/chatlog/preview', upload.single('chatlog'), (req, res) => {
+app.post('/api/chatlog/preview', requireAuth, upload.single('chatlog'), (req, res) => {
     try {
         if (!req.file) {
             res.status(400).json({ error: '请上传聊天记录文件' });
@@ -413,8 +413,8 @@ app.put('/api/character/:id', requireAuth, (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/character/:id/reset', (req, res) => {
-    const success = resetCharacterToDefault(req.params.id);
+app.post('/api/character/:id/reset', requireAuth, (req, res) => {
+    const success = resetCharacterToDefault(req.params.id as string);
     if (!success) {
         res.status(400).json({ error: '该角色没有可重置的修改' });
         return;
@@ -437,14 +437,14 @@ app.get('/api/session', (req, res) => {
     res.json(settings);
 });
 
-app.post('/api/session', (req, res) => {
+app.post('/api/session', requireAuth, (req, res) => {
     const { sessionId = 'default', ...settings } = req.body;
     updateSessionSettings(sessionId, settings);
     const updated = getSessionSettings(sessionId);
     res.json({ success: true, settings: updated });
 });
 
-app.post('/api/character/switch', async (req, res) => {
+app.post('/api/character/switch', requireAuth, async (req, res) => {
     const { sessionId = 'default', characterId } = req.body;
     if (!characterId) {
         res.status(400).json({ error: '请指定角色 ID' });
@@ -525,13 +525,13 @@ app.post('/api/chat/stream', requireAuth, async (req, res) => {
     }
 });
 
-app.get('/api/history', (req, res) => {
+app.get('/api/history', requireAuth, (req, res) => {
     const sessionId = (req.query.sessionId as string) || 'default';
     const history = getChatHistory(sessionId);
     res.json({ history, count: history.length });
 });
 
-app.get('/api/greeting/check', async (req, res) => {
+app.get('/api/greeting/check', requireAuth, async (req, res) => {
     if (!isApiKeyValid()) {
         res.json({ should: false });
         return;
@@ -566,7 +566,7 @@ app.post('/api/history/clear', requireAuth, (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/history/export', (req, res) => {
+app.get('/api/history/export', requireAuth, (req, res) => {
     const sessionId = (req.query.sessionId as string) || 'default';
     const history = getChatHistory(sessionId);
     const settings = getSessionSettings(sessionId);
