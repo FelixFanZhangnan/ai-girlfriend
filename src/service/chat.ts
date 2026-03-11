@@ -118,12 +118,20 @@ export const DEFAULT_CHARACTERS: Record<string, { name: string; avatar: string; 
     },
 };
 
+export interface CharacterMeta {
+    age: number;
+    profession?: string;
+}
+
 interface CustomCharacter {
     id: string;
     name: string;
     avatar: string;
     description: string;
     prompt: string;
+    age: number;
+    profession?: string;
+    createdAt: number;
 }
 
 interface ChatSession {
@@ -143,8 +151,22 @@ const sessions: Map<string, ChatSession> = new Map();
 const MAX_HISTORY = 30;
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24小时会话超时
 
-const customCharacters: Map<string, CustomCharacter> = loadCustomCharacters();
-const overriddenDefaultCharacters: Map<string, CustomCharacter> = loadOverriddenCharacters();
+// 加载时兼容旧数据：为缺少 age/createdAt 的旧角色补上默认值
+function migrateCustomChar(raw: any): CustomCharacter {
+    const { gender, ...rest } = raw; // 移除旧的 gender 字段
+    return {
+        ...rest,
+        age: raw.age || 0,
+        createdAt: raw.createdAt || 0,
+    };
+}
+
+const customCharacters: Map<string, CustomCharacter> = new Map(
+    Array.from(loadCustomCharacters().entries()).map(([k, v]) => [k, migrateCustomChar(v)])
+);
+const overriddenDefaultCharacters: Map<string, CustomCharacter> = new Map(
+    Array.from(loadOverriddenCharacters().entries()).map(([k, v]) => [k, migrateCustomChar(v)])
+);
 const characterHistories: Map<string, Map<string, Array<{ role: 'user' | 'assistant'; content: string; timestamp: number }>>> = loadAllHistories();
 const userMemories: Map<string, Record<string, string>> = loadAllMemories();
 
@@ -290,24 +312,28 @@ function getOrCreateSession(sessionId: string): ChatSession {
     return session;
 }
 
-export function getAllCharacters(): Record<string, { name: string; avatar: string; description: string; isCustom: boolean }> {
-    const result: Record<string, { name: string; avatar: string; description: string; isCustom: boolean }> = {};
+export function getAllCharacters(): Record<string, { name: string; avatar: string; description: string; isCustom: boolean; age?: number; profession?: string }> {
+    const result: Record<string, any> = {};
 
     for (const [id, char] of Object.entries(DEFAULT_CHARACTERS)) {
         result[id] = { name: char.name, avatar: char.avatar, description: char.description, isCustom: false };
     }
 
     for (const [id, char] of customCharacters) {
-        result[id] = { name: char.name, avatar: char.avatar, description: char.description, isCustom: true };
+        result[id] = {
+            name: char.name, avatar: char.avatar, description: char.description, isCustom: true,
+            age: char.age, profession: char.profession
+        };
     }
 
     return result;
 }
 
-export function getCharacterInfo(characterId: string): { name: string; avatar: string; description: string; prompt: string; isCustom: boolean } | null {
+export function getCharacterInfo(characterId: string): { name: string; avatar: string; description: string; prompt: string; isCustom: boolean; age?: number; profession?: string } | null {
     const overriddenChar = overriddenDefaultCharacters.get(characterId);
     if (overriddenChar) {
-        return { ...overriddenChar, isCustom: false };
+        const { gender, ...rest } = overriddenChar as any;
+        return { ...rest, isCustom: false };
     }
 
     const defaultChar = DEFAULT_CHARACTERS[characterId];
@@ -317,28 +343,56 @@ export function getCharacterInfo(characterId: string): { name: string; avatar: s
 
     const customChar = customCharacters.get(characterId);
     if (customChar) {
-        return { ...customChar, isCustom: true };
+        return {
+            name: customChar.name, avatar: customChar.avatar,
+            description: customChar.description, prompt: customChar.prompt,
+            isCustom: true,
+            age: customChar.age, profession: customChar.profession
+        };
     }
 
     return null;
 }
 
-export function addCustomCharacter(id: string, name: string, avatar: string, description: string, prompt: string): boolean {
+// 检查是否为自定义角色（用于追加训练权限校验）
+export function isCustomCharacter(characterId: string): boolean {
+    return customCharacters.has(characterId);
+}
+
+export function addCustomCharacter(
+    id: string, name: string, avatar: string, description: string, prompt: string,
+    meta?: CharacterMeta
+): boolean {
     if (DEFAULT_CHARACTERS[id] || customCharacters.has(id)) return false;
-    customCharacters.set(id, { id, name, avatar, description, prompt });
+    customCharacters.set(id, {
+        id, name, avatar, description, prompt,
+        age: meta?.age || 0,
+        profession: meta?.profession,
+        createdAt: Date.now(),
+    });
     saveCustomCharacters(customCharacters);
     return true;
 }
 
 export function updateCharacter(id: string, name: string, avatar: string, description: string, prompt: string): boolean {
     if (DEFAULT_CHARACTERS[id]) {
-        overriddenDefaultCharacters.set(id, { id, name, avatar, description, prompt });
+        const existing = overriddenDefaultCharacters.get(id);
+        overriddenDefaultCharacters.set(id, {
+            id, name, avatar, description, prompt,
+            age: existing?.age || 0,
+            profession: existing?.profession,
+            createdAt: existing?.createdAt || Date.now(),
+        });
         saveOverriddenCharacters(overriddenDefaultCharacters);
         return true;
     }
 
     if (customCharacters.has(id)) {
-        customCharacters.set(id, { id, name, avatar, description, prompt });
+        const existing = customCharacters.get(id)!;
+        customCharacters.set(id, {
+            ...existing,
+            name, avatar, description, prompt,
+        });
         saveCustomCharacters(customCharacters);
         return true;
     }

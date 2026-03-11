@@ -105,6 +105,9 @@ interface PersistedCharacter {
     avatar: string;
     description: string;
     prompt: string;
+    age?: number;
+    profession?: string;
+    createdAt?: number;
 }
 
 const CUSTOM_CHARS_FILE = 'custom_characters.json';

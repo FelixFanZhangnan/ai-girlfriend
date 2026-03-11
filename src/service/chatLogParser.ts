@@ -411,26 +411,27 @@ ${exampleDialogues}
 请用中文回复，回复要简洁自然。`;
 }
 
-export async function processChatLogFile(
+/**
+ * 解析聊天记录并生成角色 Prompt（不做 RAG、不创建角色）
+ * 返回 prompt + Q&A 对，供调用方分别处理
+ */
+export function parseChatLogAndGeneratePrompt(
     fileContent: string,
     targetSender: string,
-    characterName: string,
-    characterId: string // Need id to save RAG bounds
-): Promise<{
+    characterName: string
+): {
     success: boolean;
     prompt?: string;
     participants?: string[];
     messageCount?: number;
+    qaPairs?: { userQuery: string; characterReply: string }[];
     error?: string;
-}> {
+} {
     try {
         const parsed = parseWeChatChatLogContent(fileContent, targetSender);
 
         if (parsed.participants.length === 0) {
-            return {
-                success: false,
-                error: '无法解析聊天记录，请确保格式正确'
-            };
+            return { success: false, error: '无法解析聊天记录，请确保格式正确' };
         }
 
         if (!parsed.participants.includes(targetSender)) {
@@ -450,32 +451,16 @@ export async function processChatLogFile(
             };
         }
 
-        // --- RAG 提取篇: 找出对方回答你的上一句(你的提问) ---
-        const docsToStore: { userQuery: string, characterReply: string }[] = [];
+        // 提取 Q&A 对
+        const qaPairs: { userQuery: string; characterReply: string }[] = [];
         for (let i = 1; i < parsed.messages.length; i++) {
             const currentMsg = parsed.messages[i];
             const prevMsg = parsed.messages[i - 1];
-
-            // 如果当前消息是目标角色发的，且上一条是别人（通常是用户）发的
             if (currentMsg.sender === targetSender && prevMsg.sender !== targetSender) {
                 if (currentMsg.content.length > 2 && prevMsg.content.length > 2) {
-                    docsToStore.push({
-                        userQuery: prevMsg.content,
-                        characterReply: currentMsg.content
-                    });
+                    qaPairs.push({ userQuery: prevMsg.content, characterReply: currentMsg.content });
                 }
             }
-        }
-
-        // 异步丢进去嵌入，如果是前端上传触发的，不想卡死，可以火急火燎先返回提示词
-        // 我们等这段运行完再返回，确保向量建完
-        if (docsToStore.length > 0 && characterId) {
-            console.log(`[Parser] Found ${docsToStore.length} Q&A pairs, initiating RAG vectorize...`);
-            // Limit to max 100 for safety against huge billing right now
-            const safeDocs = docsToStore.slice(-100);
-            addDocumentsToStore(characterId, safeDocs).catch(err => {
-                console.error('[Parser] Failed to embed docs async:', err);
-            });
         }
 
         const style = analyzeChatStyle(parsed.targetMessages);
@@ -485,7 +470,8 @@ export async function processChatLogFile(
             success: true,
             prompt,
             participants: parsed.participants,
-            messageCount: parsed.targetMessages.length
+            messageCount: parsed.targetMessages.length,
+            qaPairs,
         };
     } catch (error) {
         return {
@@ -493,4 +479,75 @@ export async function processChatLogFile(
             error: `处理失败：${error instanceof Error ? error.message : '未知错误'}`
         };
     }
+}
+
+/**
+ * 将 Q&A 对向量化并存入 RAG（仅做训练，不创建角色）
+ */
+export async function trainCharacterRAG(
+    characterId: string,
+    qaPairs: { userQuery: string; characterReply: string }[]
+): Promise<{ newCount: number; dedupCount: number }> {
+    if (qaPairs.length === 0) {
+        return { newCount: 0, dedupCount: 0 };
+    }
+
+    console.log(`[Parser] Found ${qaPairs.length} Q&A pairs, initiating RAG vectorize...`);
+    const safeDocs = qaPairs.slice(-100);
+
+    try {
+        await addDocumentsToStore(characterId, safeDocs);
+        return { newCount: safeDocs.length, dedupCount: 0 };
+    } catch (err) {
+        console.error('[Parser] Failed to embed docs:', err);
+        return { newCount: 0, dedupCount: 0 };
+    }
+}
+
+/**
+ * 将性别/年龄/职业注入 Prompt 前缀
+ */
+export function injectMetaIntoPrompt(
+    prompt: string,
+    meta: { age: number; profession?: string }
+): string {
+    let metaSection = `【基本信息】\n- 年龄：${meta.age} 岁\n`;
+    if (meta.profession) {
+        metaSection += `- 职业：${meta.profession}\n`;
+    }
+    metaSection += '\n';
+
+    return metaSection + prompt;
+}
+
+/**
+ * 兼容旧接口：一步完成解析+RAG
+ */
+export async function processChatLogFile(
+    fileContent: string,
+    targetSender: string,
+    characterName: string,
+    characterId: string
+): Promise<{
+    success: boolean;
+    prompt?: string;
+    participants?: string[];
+    messageCount?: number;
+    error?: string;
+}> {
+    const result = parseChatLogAndGeneratePrompt(fileContent, targetSender, characterName);
+    if (!result.success) return result;
+
+    if (result.qaPairs && result.qaPairs.length > 0 && characterId) {
+        trainCharacterRAG(characterId, result.qaPairs).catch(err => {
+            console.error('[Parser] Failed to embed docs async:', err);
+        });
+    }
+
+    return {
+        success: true,
+        prompt: result.prompt,
+        participants: result.participants,
+        messageCount: result.messageCount,
+    };
 }

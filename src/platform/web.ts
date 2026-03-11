@@ -20,9 +20,11 @@ import {
     updateActivity,
     checkApiHealth,
     fetchApiModels,
+    isCustomCharacter,
+    CharacterMeta,
 } from '../service/chat';
 import { config, updateApiKey, getApiConfig, isApiKeyValid, getAvailableModels, updateDefaultModel, updateTelegramToken, updateServiceConfig, getFullConfig } from '../config';
-import { processChatLogFile } from '../service/chatLogParser';
+import { processChatLogFile, parseChatLogAndGeneratePrompt, trainCharacterRAG, injectMetaIntoPrompt } from '../service/chatLogParser';
 
 const app = express();
 
@@ -226,6 +228,7 @@ app.get('/api/characters', (_req, res) => {
         avatar: char.avatar,
         description: char.description,
         isCustom: char.isCustom,
+        ...(char.isCustom ? { age: char.age, profession: char.profession } : {}),
     }));
     res.json({ characters: list });
 });
@@ -243,21 +246,115 @@ app.get('/api/character/:id', (req, res) => {
         description: charInfo.description,
         prompt: charInfo.prompt,
         isCustom: charInfo.isCustom,
+        ...(charInfo.isCustom ? { age: charInfo.age, profession: charInfo.profession } : {}),
     });
 });
 
-app.post('/api/character', (req, res) => {
-    const { id, name, avatar, description, prompt } = req.body;
-    if (!id || !name || !prompt) {
-        res.status(400).json({ error: '缺少必要参数' });
+app.post('/api/character', upload.single('chatlog'), async (req, res) => {
+    const { id, name, avatar, description, prompt, age, profession, targetSender } = req.body;
+
+    // 基本校验
+    if (!id || !name) {
+        res.status(400).json({ error: '缺少必要参数（id, name）' });
         return;
     }
-    const success = addCustomCharacter(id, name, avatar || '🤖', description || '', prompt);
+    const ageNum = parseInt(age);
+    if (!ageNum || ageNum < 1 || ageNum > 120) {
+        res.status(400).json({ error: '请指定有效的年龄（1-120）' });
+        return;
+    }
+
+    const meta: CharacterMeta = { age: ageNum, profession: profession || undefined };
+    let finalPrompt = prompt || '';
+
+    // 如果上传了聊天记录文件，从中生成 prompt + 启动 RAG 训练
+    if (req.file) {
+        const chatlogContent = req.file.buffer.toString('utf-8');
+        if (!targetSender) {
+            res.status(400).json({ error: '上传聊天记录时必须指定 targetSender（要学习的发送者）' });
+            return;
+        }
+
+        const parseResult = parseChatLogAndGeneratePrompt(chatlogContent, targetSender, name);
+        if (!parseResult.success) {
+            res.status(400).json({ error: parseResult.error, participants: parseResult.participants });
+            return;
+        }
+
+        finalPrompt = parseResult.prompt || '';
+
+        // 注入元数据到 prompt
+        finalPrompt = injectMetaIntoPrompt(finalPrompt, meta);
+
+        // 异步启动 RAG 训练
+        if (parseResult.qaPairs && parseResult.qaPairs.length > 0) {
+            trainCharacterRAG(id, parseResult.qaPairs).catch(err => {
+                console.error('[API] RAG training failed:', err);
+            });
+        }
+    } else {
+        // 手动创建模式，必须有 prompt
+        if (!finalPrompt) {
+            res.status(400).json({ error: '手动创建角色时必须填写角色人设（prompt）' });
+            return;
+        }
+        // 注入元数据到 prompt
+        finalPrompt = injectMetaIntoPrompt(finalPrompt, meta);
+    }
+
+    const success = addCustomCharacter(id, name, avatar || '🤖', description || '', finalPrompt, meta);
     if (!success) {
         res.status(400).json({ error: '角色ID已存在或与默认角色冲突' });
         return;
     }
-    res.json({ success: true, character: { id, name, avatar: avatar || '🤖', description: description || '', prompt } });
+    res.json({
+        success: true,
+        character: { id, name, avatar: avatar || '🤖', description: description || '', age: ageNum, profession }
+    });
+});
+
+// 追加聊天记录训练（仅限已存在的自定义角色）
+app.post('/api/character/:id/append-chatlog', upload.single('chatlog'), async (req, res) => {
+    const characterId = req.params.id;
+
+    if (!isCustomCharacter(characterId as string)) {
+        res.status(403).json({ error: '只能对自定义创建的角色追加聊天记录训练' });
+        return;
+    }
+
+    if (!req.file) {
+        res.status(400).json({ error: '请上传聊天记录文件' });
+        return;
+    }
+
+    const { targetSender } = req.body;
+    if (!targetSender) {
+        res.status(400).json({ error: '请指定要学习的发送者（targetSender）' });
+        return;
+    }
+
+    const chatlogContent = req.file.buffer.toString('utf-8');
+    const charInfo = getCharacterInfo(characterId as string);
+    const charName: string = charInfo?.name || (characterId as string);
+    const parseResult = parseChatLogAndGeneratePrompt(chatlogContent, targetSender as string, charName);
+
+    if (!parseResult.success) {
+        res.status(400).json({ error: parseResult.error, participants: parseResult.participants });
+        return;
+    }
+
+    if (!parseResult.qaPairs || parseResult.qaPairs.length === 0) {
+        res.json({ success: true, message: '聊天记录中未找到可训练的问答对', newCount: 0 });
+        return;
+    }
+
+    const ragResult = await trainCharacterRAG(characterId as string, parseResult.qaPairs);
+    res.json({
+        success: true,
+        message: `追加训练完成：新增 ${ragResult.newCount} 条向量记忆`,
+        newCount: ragResult.newCount,
+        messageCount: parseResult.messageCount,
+    });
 });
 
 app.put('/api/character/:id', (req, res) => {

@@ -1398,6 +1398,14 @@
                     <div class="emoji-picker" id="newCharAvatarPicker"></div>
                 </div>
                 <div class="modal-section">
+                    <label>年龄 <span style="color:#ff3b30">*</span></label>
+                    <input type="number" id="newCharAge" min="1" max="120" placeholder="例如: 20">
+                </div>
+                <div class="modal-section">
+                    <label>职业 <span style="color:rgba(0,0,0,0.3)">(可选)</span></label>
+                    <input type="text" id="newCharProfession" placeholder="例如: 大学生、程序员">
+                </div>
+                <div class="modal-section">
                     <label>角色描述</label>
                     <input type="text" id="newCharDesc" placeholder="简短描述角色特点">
                 </div>
@@ -1420,6 +1428,14 @@
                 <div class="modal-section">
                     <label>头像</label>
                     <div class="emoji-picker" id="chatlogAvatarPicker"></div>
+                </div>
+                <div class="modal-section">
+                    <label>年龄 <span style="color:#ff3b30">*</span></label>
+                    <input type="number" id="chatlogCharAge" min="1" max="120" placeholder="例如: 20">
+                </div>
+                <div class="modal-section">
+                    <label>职业 <span style="color:rgba(0,0,0,0.3)">(可选)</span></label>
+                    <input type="text" id="chatlogCharProfession" placeholder="例如: 大学生、程序员">
                 </div>
                 <div class="modal-section">
                     <label>上传微信聊天记录</label>
@@ -1788,30 +1804,46 @@
         async function createCharacterFromChatlog() {
             const id = document.getElementById('chatlogCharId').value.trim();
             const name = document.getElementById('chatlogCharName').value.trim();
-            const prompt = document.getElementById('chatlogPromptPreview').value.trim();
+            const age = document.getElementById('chatlogCharAge').value;
+            const profession = document.getElementById('chatlogCharProfession').value.trim();
+            const fileInput = document.getElementById('chatlogFile');
+            const sender = document.getElementById('senderSelect').value;
 
             if (!id || !name) {
                 showToast('请填写角色ID和名称', 'error');
                 return;
             }
-
-            if (!prompt) {
-                showToast('请先上传聊天记录并选择发送者', 'error');
+            if (!age || parseInt(age) < 1) {
+                showToast('请填写有效的年龄', 'error');
+                return;
+            }
+            if (!fileInput.files || !fileInput.files[0]) {
+                showToast('请上传聊天记录文件', 'error');
+                return;
+            }
+            if (!sender) {
+                showToast('请选择要学习的发送者', 'error');
                 return;
             }
 
             try {
-                const res = await fetch("/api/character", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id, name, avatar: chatlogAvatar, description: `基于聊天记录学习的角色`, prompt })
-                });
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('name', name);
+                formData.append('avatar', chatlogAvatar);
+                formData.append('description', '基于聊天记录学习的角色');
+                formData.append('age', age);
+                if (profession) formData.append('profession', profession);
+                formData.append('targetSender', sender);
+                formData.append('chatlog', fileInput.files[0]);
+
+                const res = await fetch("/api/character", { method: "POST", body: formData });
                 const data = await res.json();
                 if (data.success) {
                     closeCharacterModal();
                     await loadCharacters();
                     selectCharacter(id);
-                    showToast('角色创建成功！', 'success');
+                    showToast('角色创建成功！RAG 训练已在后台运行', 'success');
                 } else {
                     showToast(data.error, 'error');
                 }
@@ -1826,28 +1858,41 @@
             const name = document.getElementById('newCharName').value.trim();
             const desc = document.getElementById('newCharDesc').value.trim();
             const prompt = document.getElementById('newCharPrompt').value.trim();
+            const age = document.getElementById('newCharAge').value;
+            const profession = document.getElementById('newCharProfession').value.trim();
 
             if (!id || !name || !prompt) {
-                alert('请填写角色ID、名称和人设');
+                showToast('请填写角色ID、名称和人设', 'error');
+                return;
+            }
+            if (!age || parseInt(age) < 1) {
+                showToast('请填写有效的年龄', 'error');
                 return;
             }
 
             try {
-                const res = await fetch("/api/character", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ id, name, avatar: newCharAvatar, description: desc, prompt })
-                });
+                const formData = new FormData();
+                formData.append('id', id);
+                formData.append('name', name);
+                formData.append('avatar', newCharAvatar);
+                formData.append('description', desc);
+                formData.append('prompt', prompt);
+                formData.append('age', age);
+                if (profession) formData.append('profession', profession);
+
+                const res = await fetch("/api/character", { method: "POST", body: formData });
                 const data = await res.json();
                 if (data.success) {
                     closeCharacterModal();
                     await loadCharacters();
                     selectCharacter(id);
+                    showToast('角色创建成功！', 'success');
                 } else {
-                    alert(data.error);
+                    showToast(data.error, 'error');
                 }
             } catch (e) {
                 console.error("创建角色失败:", e);
+                showToast('创建角色失败', 'error');
             }
         }
 
