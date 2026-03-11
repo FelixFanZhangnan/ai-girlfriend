@@ -8,7 +8,9 @@ release/
 *.log
 test*.mjs
 test*.json
-*test*.ts
-*test*.js
+/test_scratch*.ts
+/test_scratch*.js
+/test_temp*.ts
+/test_temp*.js
 
 .mcp.json
