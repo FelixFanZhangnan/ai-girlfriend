@@ -23,7 +23,7 @@ import {
     isCustomCharacter,
     CharacterMeta,
 } from '../service/chat';
-import { config, updateApiKey, getApiConfig, isApiKeyValid, getAvailableModels, updateDefaultModel, updateTelegramToken, updateServiceConfig, getFullConfig } from '../config';
+import { config, updateApiKey, getApiConfig, isApiKeyValid, getAvailableModels, updateDefaultModel, updateTelegramToken, updateServiceConfig, getFullConfig, getApiToken, isAuthRequired, printApiToken } from '../config';
 import { processChatLogFile, parseChatLogAndGeneratePrompt, trainCharacterRAG, injectMetaIntoPrompt } from '../service/chatLogParser';
 
 const app = express();
@@ -34,6 +34,52 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 } // 限制5MB
+});
+
+// ===== API Token 认证中间件 =====
+import { Request, Response, NextFunction } from 'express';
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+    if (!isAuthRequired()) {
+        next();
+        return;
+    }
+
+    const authHeader = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
+    const expectedToken = getApiToken();
+
+    let providedToken = '';
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        providedToken = authHeader.slice(7);
+    } else if (queryToken) {
+        providedToken = queryToken;
+    }
+
+    if (providedToken === expectedToken) {
+        next();
+    } else {
+        res.status(401).json({ error: 'Unauthorized' });
+    }
+}
+
+// 前端登录: 验证 token 并返回确认
+app.post('/api/auth/login', express.json(), (req, res) => {
+    const { token } = req.body;
+    if (!isAuthRequired()) {
+        res.json({ success: true, authDisabled: true });
+        return;
+    }
+    if (token === getApiToken()) {
+        res.json({ success: true });
+    } else {
+        res.status(401).json({ error: 'Token 无效' });
+    }
+});
+
+// 查询是否需要认证
+app.get('/api/auth/status', (_req, res) => {
+    res.json({ authRequired: isAuthRequired() });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -102,7 +148,7 @@ app.get('/api/config', (_req, res) => {
     });
 });
 
-app.post('/api/config/apikey', (req, res) => {
+app.post('/api/config/apikey', requireAuth, (req, res) => {
     const { apiKey, baseUrl } = req.body;
 
     if (!apiKey && !baseUrl) {
@@ -376,8 +422,8 @@ app.post('/api/character/:id/reset', (req, res) => {
     res.json({ success: true });
 });
 
-app.delete('/api/character/:id', (req, res) => {
-    const success = deleteCustomCharacter(req.params.id);
+app.delete('/api/character/:id', requireAuth, (req, res) => {
+    const success = deleteCustomCharacter(req.params.id as string);
     if (!success) {
         res.status(400).json({ error: '角色不存在或为默认角色' });
         return;
@@ -418,7 +464,7 @@ app.post('/api/character/switch', async (req, res) => {
     }
 });
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', requireAuth, async (req, res) => {
     if (!isApiKeyValid()) {
         res.status(400).json({ error: '请先配置 API Key' });
         return;
@@ -448,7 +494,7 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-app.post('/api/chat/stream', async (req, res) => {
+app.post('/api/chat/stream', requireAuth, async (req, res) => {
     if (!isApiKeyValid()) {
         res.status(400).json({ error: '请先配置 API Key' });
         return;
@@ -514,7 +560,7 @@ app.post('/api/activity', (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/history/clear', (req, res) => {
+app.post('/api/history/clear', requireAuth, (req, res) => {
     const { sessionId = 'default' } = req.body;
     clearChatHistory(sessionId);
     res.json({ success: true });
@@ -548,6 +594,7 @@ export async function startWebServer(port: number = 3000) {
     return new Promise<void>((resolve) => {
         app.listen(port, () => {
             console.log(`Web 服务已启动: http://localhost:${port}`);
+            printApiToken();
             resolve();
         });
     });

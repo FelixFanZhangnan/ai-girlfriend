@@ -1487,6 +1487,23 @@
         const apiCache = new Map();
         const CACHE_TTL = 5 * 60 * 1000; // 5分钟缓存
 
+        // ===== API Token 认证 =====
+        function getAuthToken() {
+            return localStorage.getItem('ai_girlfriend_token') || '';
+        }
+        function setAuthToken(token) {
+            localStorage.setItem('ai_girlfriend_token', token);
+        }
+        function getAuthHeaders() {
+            const token = getAuthToken();
+            return token ? { 'Authorization': 'Bearer ' + token } : {};
+        }
+        // 带认证的 fetch 包装
+        function authFetch(url, options = {}) {
+            const headers = { ...(options.headers || {}), ...getAuthHeaders() };
+            return fetch(url, { ...options, headers });
+        }
+
         async function fetchWithCache(url, options = {}) {
             const cacheKey = url + JSON.stringify(options);
             const cached = apiCache.get(cacheKey);
@@ -1496,7 +1513,7 @@
             }
 
             try {
-                const response = await fetch(url, options);
+                const response = await authFetch(url, options);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -1616,7 +1633,7 @@
             formData.append('chatlog', file);
 
             try {
-                const res = await fetch('/api/chatlog/preview', {
+                const res = await authFetch('/api/chatlog/preview', {
                     method: 'POST',
                     body: formData
                 });
@@ -1653,7 +1670,7 @@
             formData.append('characterName', charName);
 
             try {
-                const res = await fetch('/api/chatlog/parse', {
+                const res = await authFetch('/api/chatlog/parse', {
                     method: 'POST',
                     body: formData
                 });
@@ -1704,7 +1721,7 @@
                 // 如果在设置界面，切换角色时回到聊天界面
                 switchTab('characters');
 
-                const res = await fetch("/api/character/switch", {
+                const res = await authFetch("/api/character/switch", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ sessionId: sid, characterId: charId })
@@ -1728,7 +1745,7 @@
         async function deleteCharacter(charId) {
             if (!confirm('确定要删除这个角色吗？')) return;
             try {
-                await fetch(`/api/character/${charId}`, { method: "DELETE" });
+                await authFetch(`/api/character/${charId}`, { method: "DELETE" });
                 await loadCharacters();
             } catch (e) {
                 console.error("删除角色失败:", e);
@@ -1837,7 +1854,7 @@
                 formData.append('targetSender', sender);
                 formData.append('chatlog', fileInput.files[0]);
 
-                const res = await fetch("/api/character", { method: "POST", body: formData });
+                const res = await authFetch("/api/character", { method: "POST", body: formData });
                 const data = await res.json();
                 if (data.success) {
                     closeCharacterModal();
@@ -1880,7 +1897,7 @@
                 formData.append('age', age);
                 if (profession) formData.append('profession', profession);
 
-                const res = await fetch("/api/character", { method: "POST", body: formData });
+                const res = await authFetch("/api/character", { method: "POST", body: formData });
                 const data = await res.json();
                 if (data.success) {
                     closeCharacterModal();
@@ -1904,7 +1921,7 @@
             editingCharIsCustom = isCustom;
 
             try {
-                const res = await fetch(`/api/character/${charId}`);
+                const res = await authFetch(`/api/character/${charId}`);
                 const char = await res.json();
 
                 document.getElementById('modalTitle').textContent = '编辑角色';
@@ -1938,7 +1955,7 @@
             }
 
             try {
-                const res = await fetch(`/api/character/${editingCharId}`, {
+                const res = await authFetch(`/api/character/${editingCharId}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ name, avatar: newCharAvatar, description: desc, prompt })
@@ -1960,7 +1977,7 @@
 
         async function loadSettings() {
             try {
-                const res = await fetch(`/api/session?sessionId=${sid}`);
+                const res = await authFetch(`/api/session?sessionId=${sid}`);
                 settings = await res.json();
                 updateDisplay();
                 updateSettingsForm();
@@ -1997,7 +2014,7 @@
             document.getElementById("maxTokensValue").textContent = newSettings.maxTokens;
 
             try {
-                const res = await fetch("/api/session", {
+                const res = await authFetch("/api/session", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(newSettings)
@@ -2014,7 +2031,7 @@
 
         async function loadHistory() {
             try {
-                const res = await fetch(`/api/history?sessionId=${sid}`);
+                const res = await authFetch(`/api/history?sessionId=${sid}`);
                 const data = await res.json();
                 if (data.history && data.history.length > 0) {
                     data.history.forEach(msg => {
@@ -2039,7 +2056,7 @@
         async function clearHistory() {
             if (!confirm("确定要清空所有聊天记录吗？")) return;
             try {
-                await fetch("/api/history/clear", {
+                await authFetch("/api/history/clear", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ sessionId: sid })
@@ -2185,7 +2202,7 @@
             updateActivity();
 
             try {
-                const res = await fetch("/api/chat/stream", {
+                const res = await authFetch("/api/chat/stream", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
@@ -2367,8 +2384,50 @@
             setTimeout(() => toast.remove(), 3000);
         }
 
+        // ===== 登录认证 =====
+        async function checkAuth() {
+            try {
+                const statusRes = await fetch('/api/auth/status');
+                const statusData = await statusRes.json();
+                if (!statusData.authRequired) return; // 不需要认证
+
+                // 已有 token，验证是否有效
+                const existingToken = getAuthToken();
+                if (existingToken) {
+                    const checkRes = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: existingToken })
+                    });
+                    if (checkRes.ok) return; // token 有效
+                }
+
+                // 提示用户输入 token
+                const token = prompt('🔑 请输入 API Token\n（服务器启动时显示在控制台日志中）');
+                if (!token) {
+                    showToast('Token 不能为空，部分功能可能无法使用', 'error');
+                    return;
+                }
+
+                const loginRes = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token })
+                });
+                if (loginRes.ok) {
+                    setAuthToken(token);
+                    showToast('✅ 认证成功', 'success');
+                } else {
+                    showToast('Token 无效，请核对后刷新页面', 'error');
+                }
+            } catch (e) {
+                console.error('Auth check failed:', e);
+            }
+        }
+
         async function init() {
             initAvatarPickers();
+            await checkAuth();
             await loadCharacters();
             await loadSettings();
             await loadHistory();
@@ -2386,7 +2445,7 @@
 
         async function checkGreeting() {
             try {
-                const res = await fetch(`/api/greeting/check?sessionId=${sid}`);
+                const res = await authFetch(`/api/greeting/check?sessionId=${sid}`);
                 const data = await res.json();
 
                 if (data.should && data.message) {
@@ -2399,7 +2458,7 @@
 
         async function updateActivity() {
             try {
-                await fetch("/api/activity", {
+                await authFetch("/api/activity", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ sessionId: sid })
@@ -2489,7 +2548,7 @@
 
         async function fetchDynamicModels() {
             try {
-                const res = await fetch("/api/models/dynamic");
+                const res = await authFetch("/api/models/dynamic");
                 const data = await res.json();
                 if (data.models && data.models.length > 0) {
                     availableModels = data.models;
@@ -2508,7 +2567,7 @@
             currentModel = modelId;
             renderModelList();
             try {
-                const res = await fetch("/api/config/model", {
+                const res = await authFetch("/api/config/model", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ model: modelId })
@@ -2605,7 +2664,7 @@
                 handleProviderChange(); // Update hints based on selected provider
 
                 if (data.api.hasKey) {
-                    const healthRes = await fetch("/api/health");
+                    const healthRes = await authFetch("/api/health");
                     const healthData = await healthRes.json();
                     if (healthData.status === 'healthy') {
                         statusDiv.textContent = `✓ API Key 已验证有效`;
@@ -2645,7 +2704,7 @@
             btn.disabled = true;
 
             try {
-                const res = await fetch("/api/config/apikey", {
+                const res = await authFetch("/api/config/apikey", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ apiKey, baseUrl })
@@ -2674,7 +2733,7 @@
 
         async function loadServiceConfig() {
             try {
-                const res = await fetch("/api/config/full");
+                const res = await authFetch("/api/config/full");
                 const data = await res.json();
                 serviceConfig = data.services || { wechat: true, telegram: false, web: true };
                 updateServiceStatus();
@@ -2704,7 +2763,7 @@
             const newState = !serviceConfig[service];
 
             try {
-                const res = await fetch("/api/config/services", {
+                const res = await authFetch("/api/config/services", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -2735,7 +2794,7 @@
             }
 
             try {
-                const res = await fetch("/api/config/telegram", {
+                const res = await authFetch("/api/config/telegram", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token })

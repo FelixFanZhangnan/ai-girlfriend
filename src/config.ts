@@ -275,3 +275,27 @@ export async function validateApiKeyOnStartup(): Promise<{ valid: boolean; messa
     }
 }
 
+// ===== API Token 本地认证 =====
+import { randomUUID } from 'crypto';
+
+const apiToken: string = process.env.API_TOKEN || randomUUID();
+
+export function getApiToken(): string {
+    return apiToken;
+}
+
+export function isAuthRequired(): boolean {
+    // Electron 桌面应用或 DISABLE_AUTH=true 时跳过认证
+    if (process.env.DISABLE_AUTH === 'true') return false;
+    if ((process.versions as any).electron) return false;
+    return true;
+}
+
+export function printApiToken(): void {
+    if (isAuthRequired()) {
+        console.log(`🔑 API Token: ${apiToken}`);
+        console.log(`   前端登录或 API 调用时请使用此 Token`);
+    } else {
+        console.log(`🔓 认证已禁用（Electron 或 DISABLE_AUTH=true）`);
+    }
+}
