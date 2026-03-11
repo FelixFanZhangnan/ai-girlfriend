@@ -174,10 +174,14 @@ export function getFullConfig() {
 }
 
 export function getApiConfig() {
+    const key = currentConfig.openaiApiKey;
+    const maskedKey = key && key.length > 10
+        ? key.slice(0, 6) + '***' + key.slice(-4)
+        : '';
     return {
-        apiKey: currentConfig.openaiApiKey,
+        apiKey: maskedKey,
         baseUrl: currentConfig.openaiBaseUrl,
-        hasKey: !!currentConfig.openaiApiKey,
+        hasKey: !!key,
         defaultModel: currentConfig.defaultModel,
     };
 }

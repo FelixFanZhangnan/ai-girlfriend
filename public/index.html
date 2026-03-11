@@ -2576,7 +2576,14 @@
                 const data = await fetchWithCache("/api/config");
                 const statusDiv = document.getElementById('apiKeyStatus');
 
-                document.getElementById('apiKeyInput').value = data.api.apiKey || '';
+                const apiKeyInput = document.getElementById('apiKeyInput');
+                if (data.api.hasKey) {
+                    apiKeyInput.value = '';
+                    apiKeyInput.placeholder = '已配置 API Key（输入新 Key 可更新）';
+                } else {
+                    apiKeyInput.value = '';
+                    apiKeyInput.placeholder = '请输入 API Key';
+                }
 
                 const currentUrl = data.api.baseUrl || '';
                 document.getElementById('baseUrlInput').value = currentUrl;
