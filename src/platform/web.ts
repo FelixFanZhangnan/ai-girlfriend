@@ -24,7 +24,7 @@ import {
     CharacterMeta,
 } from '../service/chat';
 import { config, updateApiKey, getApiConfig, isApiKeyValid, getAvailableModels, updateDefaultModel, updateTelegramToken, updateServiceConfig, getFullConfig, getApiToken, isAuthRequired, printApiToken } from '../config';
-import { processChatLogFile, parseChatLogAndGeneratePrompt, trainCharacterRAG, injectMetaIntoPrompt } from '../service/chatLogParser';
+import { processChatLogFile, parseChatLogAndGeneratePrompt, trainCharacterRAG, injectMetaIntoPrompt, decodeFileBuffer } from '../service/chatLogParser';
 
 const app = express();
 
@@ -208,7 +208,7 @@ app.post('/api/chatlog/parse', upload.single('chatlog'), async (req, res) => {
             return;
         }
 
-        const content = req.file.buffer.toString('utf-8');
+        const content = decodeFileBuffer(req.file.buffer);
         const { targetSender, characterName, characterId } = req.body;
 
         if (!targetSender) {
@@ -236,7 +236,7 @@ app.post('/api/chatlog/preview', upload.single('chatlog'), (req, res) => {
             return;
         }
 
-        const content = req.file.buffer.toString('utf-8');
+        const content = decodeFileBuffer(req.file.buffer);
         const lines = content.split('\n').slice(0, 50);
 
         const participants = new Set<string>();
@@ -315,7 +315,7 @@ app.post('/api/character', upload.single('chatlog'), async (req, res) => {
 
     // 如果上传了聊天记录文件，从中生成 prompt + 启动 RAG 训练
     if (req.file) {
-        const chatlogContent = req.file.buffer.toString('utf-8');
+        const chatlogContent = decodeFileBuffer(req.file.buffer);
         if (!targetSender) {
             res.status(400).json({ error: '上传聊天记录时必须指定 targetSender（要学习的发送者）' });
             return;
@@ -379,7 +379,7 @@ app.post('/api/character/:id/append-chatlog', upload.single('chatlog'), async (r
         return;
     }
 
-    const chatlogContent = req.file.buffer.toString('utf-8');
+    const chatlogContent = decodeFileBuffer(req.file.buffer);
     const charInfo = getCharacterInfo(characterId as string);
     const charName: string = charInfo?.name || (characterId as string);
     const parseResult = parseChatLogAndGeneratePrompt(chatlogContent, targetSender as string, charName);

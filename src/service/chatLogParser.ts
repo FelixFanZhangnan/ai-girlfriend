@@ -121,7 +121,7 @@ function deduplicateConsecutive(messages: ChatMessage[]): ChatMessage[] {
  * 自动检测文件编码并转为 UTF-8 字符串
  * 支持 UTF-8 (含 BOM)、UTF-16 LE/BE、GBK
  */
-function decodeFileBuffer(buffer: Buffer): string {
+export function decodeFileBuffer(buffer: Buffer): string {
     // 1. 检测 UTF-8 BOM
     if (buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
         return buffer.slice(3).toString('utf-8');
