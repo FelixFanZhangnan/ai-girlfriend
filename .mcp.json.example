@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "siliconflow": {
+      "command": "node",
+      "args": ["path/to/mcp/server"],
+      "env": {
+        "AUTH_TOKEN": "your_auth_token_here"
+      }
+    }
+  }
+}

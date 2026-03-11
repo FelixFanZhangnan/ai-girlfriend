@@ -10,3 +10,5 @@ test*.mjs
 test*.json
 *test*.ts
 *test*.js
+
+.mcp.json
