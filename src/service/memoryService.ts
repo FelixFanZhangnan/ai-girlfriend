@@ -7,6 +7,9 @@ import type { ChatSession } from './sessionManager';
 export const userMemories: Map<string, Record<string, string>> = loadAllMemories();
 console.log(`📂 已加载 ${userMemories.size} 个用户的长线记忆`);
 
+// 防抖计时器，避免太频繁写盘
+let memoryPersistTimer: NodeJS.Timeout | null = null;
+
 export function persistMemories() {
     try {
         saveAllMemories(userMemories);
@@ -61,8 +64,12 @@ export async function extractMemoryBackground(sessionId: string, userMessage: st
             if (keys.length > 20) {
                 delete memory[keys[0]]; // 删除最早的一条
             }
-            // 异步延时保存，避免频繁写盘
-            setTimeout(persistMemories, 500);
+            // 异步延时保存，避免频繁写盘（防抖）
+            if (memoryPersistTimer) clearTimeout(memoryPersistTimer);
+            memoryPersistTimer = setTimeout(() => {
+                persistMemories();
+                memoryPersistTimer = null;
+            }, 2000);
         }
     } catch (error) {
         console.error('[Memory] 记忆提取失败:', error);

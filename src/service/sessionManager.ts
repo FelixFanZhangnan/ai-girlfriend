@@ -26,6 +26,9 @@ export const characterHistories: Map<string, Map<string, Array<{ role: 'user' | 
 export const lastActivityTime: Map<string, number> = new Map();
 export const sessionMutexes: Map<string, Mutex> = new Map();
 
+// 防抖计时器，避免太频繁写盘
+let persistTimer: NodeJS.Timeout | null = null;
+
 console.log(`📂 已加载 ${Array.from(characterHistories.values()).reduce((acc, m) => acc + m.size, 0)} 个角色对话记录`);
 
 export function persistData(): void {
@@ -59,8 +62,12 @@ export function saveCharacterHistory(sessionId: string, characterType: string, h
         characterHistories.set(sessionId, new Map());
     }
     characterHistories.get(sessionId)!.set(characterType, history);
-    // 异步延时保存，避免频繁写盘
-    setTimeout(persistData, 100);
+    // 异步延时保存，避免频繁写盘（防抖）
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+        persistData();
+        persistTimer = null;
+    }, 2000);
 }
 
 export function cleanupExpiredSessions() {
