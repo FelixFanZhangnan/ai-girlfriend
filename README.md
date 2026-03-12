@@ -2,7 +2,7 @@
 
 > **🎉 Current v1.0.0 Release Notes:**
 > The fundamental chat abilities, character switching, and free API integrations are extremely stable now! You can easily launch the local client with zero configuration.
-> 🚀 **Currently in Hot Development:** We are actively building deep memory cloning using RAG vector retrieval! We are teaching the AI to parse raw WeChat chat logs and deeply mimic specific personas. Stay tuned for the next major release!
+> 🚀 **Currently in Hot Development:** We've recently added edge-tts Voice Synthesis capabilities and Live2D virtual avatars for fully immersive interactions! Stay tuned for more!
 
 An AI companion bot based on large language models, supporting Web, WeChat, and Telegram platforms. Features a desktop GUI launcher, multi-character conversations, chat log learning, and personalized settings.
 
@@ -23,6 +23,10 @@ An AI companion bot based on large language models, supporting Web, WeChat, and 
   - 💔 Xiaoya - Emotional lessons character, for learning to identify manipulation
 - **Custom Characters**: Create your own exclusive AI characters
 - **Chat Log Learning**: Upload WeChat chat logs to let AI mimic specific people's speaking styles
+
+### 🔊 Voice & Avatar System (New)
+- **TTS Voice Synthesis**: Support dynamically switching character voices with automatic speech reading using `edge-tts-universal`.
+- **Live2D Virtual Avatar**: AI emotional engine dynamically drives facial expressions and WebAudio API controls lip-sync for realistic immersion.
 
 ### 🌐 Multi-Platform Support
 - **Web Interface**: Beautiful chat interface with real-time streaming conversations
