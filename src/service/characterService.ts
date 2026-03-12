@@ -3,6 +3,9 @@ import { saveCustomCharacters, loadCustomCharacters, saveOverriddenCharacters, l
 export interface CharacterMeta {
     age: number;
     profession?: string;
+    voiceId?: string;
+    voiceRate?: string;
+    voicePitch?: string;
 }
 
 export interface CustomCharacter {
@@ -13,6 +16,9 @@ export interface CustomCharacter {
     prompt: string;
     age: number;
     profession?: string;
+    voiceId?: string;
+    voiceRate?: string;
+    voicePitch?: string;
     createdAt: number;
 }
 
@@ -104,7 +110,7 @@ export function getAllCharacters(): Record<string, { name: string; avatar: strin
     return result;
 }
 
-export function getCharacterInfo(characterId: string): { name: string; avatar: string; description: string; prompt: string; isCustom: boolean; age?: number; profession?: string } | null {
+export function getCharacterInfo(characterId: string): { name: string; avatar: string; description: string; prompt: string; isCustom: boolean; age?: number; profession?: string; voiceId?: string; voiceRate?: string; voicePitch?: string } | null {
     const overriddenChar = overriddenDefaultCharacters.get(characterId);
     if (overriddenChar) {
         const { gender, ...rest } = overriddenChar as any;
@@ -122,7 +128,8 @@ export function getCharacterInfo(characterId: string): { name: string; avatar: s
             name: customChar.name, avatar: customChar.avatar,
             description: customChar.description, prompt: customChar.prompt,
             isCustom: true,
-            age: customChar.age, profession: customChar.profession
+            age: customChar.age, profession: customChar.profession,
+            voiceId: customChar.voiceId, voiceRate: customChar.voiceRate, voicePitch: customChar.voicePitch
         };
     }
 
@@ -143,19 +150,29 @@ export function addCustomCharacter(
         id, name, avatar, description, prompt,
         age: meta?.age || 0,
         profession: meta?.profession,
+        voiceId: meta?.voiceId,
+        voiceRate: meta?.voiceRate,
+        voicePitch: meta?.voicePitch,
         createdAt: Date.now(),
     });
     saveCustomCharacters(customCharacters);
     return true;
 }
 
-export function updateCharacter(id: string, name: string, avatar: string, description: string, prompt: string): boolean {
+// updateCharacter 现在支持可选的 voiceId 等属性传递（为了兼容前序代码签名，将其作为可选尾部参数）
+export function updateCharacter(
+    id: string, name: string, avatar: string, description: string, prompt: string,
+    voiceId?: string, voiceRate?: string, voicePitch?: string
+): boolean {
     if (DEFAULT_CHARACTERS[id]) {
         const existing = overriddenDefaultCharacters.get(id);
         overriddenDefaultCharacters.set(id, {
             id, name, avatar, description, prompt,
             age: existing?.age || 0,
             profession: existing?.profession,
+            voiceId: voiceId !== undefined ? voiceId : existing?.voiceId,
+            voiceRate: voiceRate !== undefined ? voiceRate : existing?.voiceRate,
+            voicePitch: voicePitch !== undefined ? voicePitch : existing?.voicePitch,
             createdAt: existing?.createdAt || Date.now(),
         });
         saveOverriddenCharacters(overriddenDefaultCharacters);
@@ -167,6 +184,9 @@ export function updateCharacter(id: string, name: string, avatar: string, descri
         customCharacters.set(id, {
             ...existing,
             name, avatar, description, prompt,
+            voiceId: voiceId !== undefined ? voiceId : existing?.voiceId,
+            voiceRate: voiceRate !== undefined ? voiceRate : existing?.voiceRate,
+            voicePitch: voicePitch !== undefined ? voicePitch : existing?.voicePitch,
         });
         saveCustomCharacters(customCharacters);
         return true;

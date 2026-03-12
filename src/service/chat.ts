@@ -9,6 +9,7 @@ export * from './characterService';
 export * from './sessionManager';
 export * from './memoryService';
 export * from './greetingService';
+export * from './ttsService';
 
 export async function getReply(sessionId: string, message: string): Promise<string> {
     const mutex = getSessionMutex(sessionId);

@@ -25,6 +25,7 @@ import {
 } from '../service/chat';
 import { config, updateApiKey, getApiConfig, isApiKeyValid, getAvailableModels, updateDefaultModel, updateTelegramToken, updateServiceConfig, getFullConfig, getApiToken, isAuthRequired, printApiToken } from '../config';
 import { processChatLogFile, parseChatLogAndGeneratePrompt, trainCharacterRAG, injectMetaIntoPrompt, decodeFileBuffer } from '../service/chatLogParser';
+import { getVoiceForCharacter, setVoiceForCharacter, textToSpeech, getAvailableVoices } from '../service/ttsService';
 
 const app = express();
 
@@ -594,7 +595,53 @@ app.get('/api/history/export', requireAuth, (req, res) => {
     res.send(txt);
 });
 
+app.post('/api/tts', requireAuth, async (req, res) => {
+    try {
+        const { text, characterId = 'default', voiceId, rate, pitch, volume } = req.body;
+        if (!text) {
+            res.status(400).json({ error: '请提供需要转语音的文本' });
+            return;
+        }
+
+        const targetVoice = voiceId || getVoiceForCharacter(characterId);
+        const audioBuffer = await textToSpeech(text, targetVoice, { rate, pitch, volume });
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        res.setHeader('Content-Length', audioBuffer.length);
+        res.end(audioBuffer);
+    } catch (error) {
+        console.error('TTS接口出错:', error);
+        res.status(500).json({ error: '语音生成失败' });
+    }
+});
+
+app.get('/api/tts/voices', requireAuth, async (_req, res) => {
+    try {
+        const voices = await getAvailableVoices();
+        res.json({ voices });
+    } catch (error) {
+        console.error('获取语音列表出错:', error);
+        res.status(500).json({ error: '获取语音列表失败' });
+    }
+});
+
+app.post('/api/tts/voice', requireAuth, (req, res) => {
+    const { characterId, voiceId } = req.body;
+    if (!characterId || !voiceId) {
+        res.status(400).json({ error: '缺少 characterId 或 voiceId' });
+        return;
+    }
+
+    const success = setVoiceForCharacter(characterId, voiceId);
+    if (success) {
+        res.json({ success: true });
+    } else {
+        res.status(400).json({ error: '角色不存在' });
+    }
+});
+
 app.use(express.static(path.join(__dirname, '../../public')));
+app.use('/node_modules', express.static(path.join(__dirname, '../../node_modules')));
 
 export async function startWebServer(port: number = 3000) {
     return new Promise<void>((resolve) => {

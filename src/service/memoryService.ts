@@ -2,7 +2,7 @@ import { loadAllMemories, saveAllMemories } from './storage';
 import { getClient } from './chatClient';
 import { config, getAvailableModels } from '../config';
 import { searchSimilarConversations } from './ragStore';
-import type { ChatSession } from './sessionManager'; 
+import type { ChatSession } from './sessionManager';
 
 export const userMemories: Map<string, Record<string, string>> = loadAllMemories();
 console.log(`📂 已加载 ${userMemories.size} 个用户的长线记忆`);
@@ -124,6 +124,13 @@ export async function buildSystemPrompt(sessionId: string, session: ChatSession,
         } catch (e) {
             console.error('[Chat] RAG retrieval failed:', e);
         }
+    }
+
+    // --- Live2D 情感指令注入（AVATAR-04） ---
+    // 由于后端在通过 pm2/node 启动，我们最好无条件支持或者判断环境变量
+    // 用户要求：当 process.env.ENABLE_LIVE2D === 'true' 时添加（如果没有传的话，可默认为 true 或留给用户自行配置环境）
+    if (process.env.ENABLE_LIVE2D !== 'false') {
+        systemPrompt += `\n\n请在每条回复的最末尾用方括号标注情感，只能选：[happy] [sad] [angry] [shy] [surprise] [normal]。这个标注不显示给用户。`;
     }
 
     return systemPrompt;
