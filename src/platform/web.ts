@@ -511,9 +511,15 @@ app.post('/api/chat/stream', requireAuth, async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
+        let clientDisconnected = false;
+        req.on('close', () => {
+            clientDisconnected = true;
+        });
+
         const stream = getReplyStream(sessionId, message, image || undefined);
 
         for await (const chunk of stream) {
+            if (clientDisconnected) break;
             res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
         }
 
