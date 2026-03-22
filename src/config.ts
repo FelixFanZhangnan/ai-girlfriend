@@ -288,6 +288,7 @@ export function isAuthRequired(): boolean {
     // Electron 桌面应用或 DISABLE_AUTH=true 时跳过认证
     if (process.env.DISABLE_AUTH === 'true') return false;
     if ((process.versions as any).electron) return false;
+    if (process.env.ELECTRON_RUN === 'true') return false;
     return true;
 }
 
