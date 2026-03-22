@@ -278,18 +278,21 @@ export async function validateApiKeyOnStartup(): Promise<{ valid: boolean; messa
 // ===== API Token 本地认证 =====
 import { randomUUID } from 'crypto';
 
-const apiToken: string = process.env.API_TOKEN || randomUUID();
+// 只有用户显式配置了 API_TOKEN 或 ENABLE_AUTH=true 时才启用认证
+// 对于本地个人项目，默认不需要认证，避免用户混淆 API Key 和 Auth Token
+const apiToken: string = process.env.API_TOKEN || '';
 
 export function getApiToken(): string {
     return apiToken;
 }
 
 export function isAuthRequired(): boolean {
-    // Electron 桌面应用或 DISABLE_AUTH=true 时跳过认证
-    if (process.env.DISABLE_AUTH === 'true') return false;
-    if ((process.versions as any).electron) return false;
-    if (process.env.ELECTRON_RUN === 'true') return false;
-    return true;
+    // 用户显式设置了 ENABLE_AUTH=true → 强制启用
+    if (process.env.ENABLE_AUTH === 'true') return true;
+    // 用户配置了固定的 API_TOKEN → 启用认证
+    if (process.env.API_TOKEN) return true;
+    // 其他情况默认不需要认证（本地个人项目）
+    return false;
 }
 
 export function printApiToken(): void {
@@ -298,6 +301,6 @@ export function printApiToken(): void {
         console.log(`\n🔑 API Token: ${apiToken}`);
         console.log(`👉 点击此链接直接登录: http://localhost:${port}?token=${apiToken}\n`);
     } else {
-        console.log(`🔓 认证已禁用（Electron 或 DISABLE_AUTH=true）`);
+        console.log(`🔓 网页认证已关闭（本地模式，如需启用请在 .env 中设置 ENABLE_AUTH=true）`);
     }
 }
