@@ -1507,6 +1507,8 @@
         const sendBtn = document.getElementById("sendBtn");
         let settings = {};
         let characters = [];
+        let currentCharacter = 'girlfriend'; // 当前选中的角色 ID
+        let charactersData = {};              // 角色 ID → 角色详情映射
         let newCharAvatar = '🤖';
 
         const AVATARS = ['💕', '💖', '💗', '💘', '💝', '🔥', '⭐', '🌟', '✨', '💫', '🌸', '🌺', '🎀', '👑', '🦋', '🐱', '🐶', '🐰', '🦊', '🐻'];
@@ -1722,6 +1724,9 @@
             try {
                 const data = await fetchWithCache("/api/characters");
                 characters = data.characters;
+                // 构建角色 ID → 详情的映射表，供 TTS 等模块使用
+                charactersData = {};
+                characters.forEach(c => { charactersData[c.id] = c; });
                 renderCharacters();
             } catch (e) {
                 console.error("加载角色列表失败:", e);
@@ -1757,6 +1762,7 @@
                 const data = await res.json();
                 if (data.success) {
                     settings = data.settings;
+                    currentCharacter = charId;
                     updateDisplay();
                     clearMessages();
                     await loadHistory();
@@ -2115,7 +2121,9 @@
         }
 
         function exportHistory() {
-            window.location.href = `/api/history/export?sessionId=${sid}`;
+            const token = getAuthToken();
+            const tokenParam = token ? `&token=${encodeURIComponent(token)}` : '';
+            window.location.href = `/api/history/export?sessionId=${sid}${tokenParam}`;
         }
 
         // ----- 图片处理 -----
@@ -2441,7 +2449,25 @@
                 const statusData = await statusRes.json();
                 if (!statusData.authRequired) return; // 不需要认证
 
-                // 已有 token，验证是否有效
+                // 优先尝试从 URL 查询参数中自动提取 token（点击终端链接时会带上）
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                if (urlToken) {
+                    const checkUrlRes = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: urlToken })
+                    });
+                    if (checkUrlRes.ok) {
+                        setAuthToken(urlToken);
+                        // 清除 URL 中的 token 参数，避免暴露
+                        const cleanUrl = window.location.pathname;
+                        window.history.replaceState({}, '', cleanUrl);
+                        return;
+                    }
+                }
+
+                // 已有 localStorage token，验证是否有效
                 const existingToken = getAuthToken();
                 if (existingToken) {
                     const checkRes = await fetch('/api/auth/login', {
@@ -2452,8 +2478,8 @@
                     if (checkRes.ok) return; // token 有效
                 }
 
-                // 提示用户输入 token
-                const token = prompt('🔑 请输入 API Token\n（服务器启动时显示在控制台日志中）');
+                // 最后才提示用户手动输入 token
+                const token = prompt('🔑 请输入 API Token\n（服务器启动时显示在控制台日志中，或直接点击终端中的链接）');
                 if (!token) {
                     showToast('Token 不能为空，部分功能可能无法使用', 'error');
                     return;

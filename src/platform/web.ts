@@ -432,7 +432,7 @@ app.delete('/api/character/:id', requireAuth, (req, res) => {
     res.json({ success: true });
 });
 
-app.get('/api/session', (req, res) => {
+app.get('/api/session', requireAuth, (req, res) => {
     const sessionId = (req.query.sessionId as string) || 'default';
     const settings = getSessionSettings(sessionId);
     res.json(settings);

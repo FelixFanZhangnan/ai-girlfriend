@@ -294,8 +294,9 @@ export function isAuthRequired(): boolean {
 
 export function printApiToken(): void {
     if (isAuthRequired()) {
-        console.log(`🔑 API Token: ${apiToken}`);
-        console.log(`   前端登录或 API 调用时请使用此 Token`);
+        const port = config.webPort || 3000;
+        console.log(`\n🔑 API Token: ${apiToken}`);
+        console.log(`👉 点击此链接直接登录: http://localhost:${port}?token=${apiToken}\n`);
     } else {
         console.log(`🔓 认证已禁用（Electron 或 DISABLE_AUTH=true）`);
     }
