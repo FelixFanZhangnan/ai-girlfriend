@@ -126,14 +126,26 @@ export const config = {
 export function updateApiKey(apiKey: string, baseUrl?: string): void {
     const oldBaseUrl = currentConfig.openaiBaseUrl;
     currentConfig.openaiApiKey = apiKey;
-    if (baseUrl) {
-        currentConfig.openaiBaseUrl = baseUrl;
+    
+    // 显式传入了 baseUrl 字段（哪怕是空字符串）
+    if (baseUrl !== undefined) {
+        if (baseUrl.trim() === '') {
+            if (apiKey && apiKey.startsWith('sk-')) {
+                currentConfig.openaiBaseUrl = 'https://api.deepseek.com/v1';
+            } else {
+                // 默认回退或者 nvapi 均为 NVIDIA
+                currentConfig.openaiBaseUrl = 'https://integrate.api.nvidia.com/v1';
+            }
+        } else {
+            currentConfig.openaiBaseUrl = baseUrl.trim();
+        }
     }
+    
     // 强制重建 OpenAI 客户端，确保新的 Key/URL 生效
     resetClient();
     // 如果 baseUrl 发生了变化，旧模型大概率不兼容新服务商，重置为空
-    if (baseUrl && baseUrl !== oldBaseUrl) {
-        console.log(`[Config] Base URL 变更: ${oldBaseUrl} → ${baseUrl}，重置默认模型`);
+    if (currentConfig.openaiBaseUrl !== oldBaseUrl) {
+        console.log(`[Config] Base URL 变更: ${oldBaseUrl} → ${currentConfig.openaiBaseUrl}，重置默认模型`);
         currentConfig.defaultModel = '';
     }
 }
@@ -287,6 +299,9 @@ export function getApiToken(): string {
 }
 
 export function isAuthRequired(): boolean {
+    // GUI 模式强制关闭 Web 密码认证
+    if (process.env.ELECTRON_RUN === 'true' || process.env.ELECTRON_RUN === '1') return false;
+    
     // 用户显式设置了 ENABLE_AUTH=true → 强制启用
     if (process.env.ENABLE_AUTH === 'true') return true;
     // 用户配置了固定的 API_TOKEN → 启用认证
