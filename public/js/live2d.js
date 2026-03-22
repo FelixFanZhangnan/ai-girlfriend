@@ -8,8 +8,8 @@ export async function initLive2D(modelPath = '/live2d-models/Hiyori/Hiyori.model
     if (live2dInstance) return live2dInstance;
 
     try {
-        const PIXI = await import('/node_modules/pixi.js/dist/pixi.mjs');
-        const { Live2D } = await import('/node_modules/easy-live2d/dist/index.js');
+        const PIXI = await import('pixi.js');
+        const { Live2D } = await import('easy-live2d');
 
         // 设置全局 PIXI 供 SDK 内部使用
         window.PIXI = PIXI;
