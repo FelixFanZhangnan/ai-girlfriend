@@ -513,7 +513,7 @@ app.post('/api/chat/stream', requireAuth, async (req, res) => {
         res.setHeader('Connection', 'keep-alive');
 
         let clientDisconnected = false;
-        req.on('close', () => {
+        res.on('close', () => {
             clientDisconnected = true;
         });
 
