@@ -300,7 +300,11 @@ function startServer() {
         serverProcess = spawn(cmd, [entryScript], {
             cwd: __dirname,
             stdio: ['ignore', 'pipe', 'pipe'],
-            env: { ...process.env, ELECTRON_RUN: 'true' },
+            env: { 
+                ...process.env, 
+                ELECTRON_RUN: 'true',
+                ENV_FILE_PATH: getEnvPath()
+            },
             detached: false,
         });
 

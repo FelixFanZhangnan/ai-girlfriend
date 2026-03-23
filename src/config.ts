@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
-dotenv.config();
-
+if (process.env.ENV_FILE_PATH) {
+    dotenv.config({ path: process.env.ENV_FILE_PATH });
+} else {
+    dotenv.config();
+}
 import { resetClient } from './service/chat';
 
 export interface ModelInfo {

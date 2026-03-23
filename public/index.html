@@ -1779,7 +1779,7 @@
         async function deleteCharacter(charId) {
             if (!confirm('确定要删除这个角色吗？')) return;
             try {
-                await authFetch(`/api/character/${charId}`, { method: "DELETE" });
+                await authFetch(`/api/character/${encodeURIComponent(charId)}`, { method: "DELETE" });
                 await loadCharacters();
             } catch (e) {
                 console.error("删除角色失败:", e);
